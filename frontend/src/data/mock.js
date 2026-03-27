@@ -1,0 +1,105 @@
+export const siteData = {
+  brand: {
+    name: "TYRELL",
+    tagline: "Donde cada pétalo cuenta una historia de amor",
+    description: "En TYRELL, transformamos flores frescas en obras de arte que transmiten emociones. Con dedicación artesanal y los arreglos más exclusivos de Moyobamba, creamos experiencias inolvidables para cada momento especial de tu vida.",
+    catalogUrl: "https://heyzine.com/flip-book/9c9575825d.html#page/14",
+    whatsappLink: "https://wa.me/51910770284",
+    location: "Moyobamba, San Martín, Perú",
+    whatsappNumber: "+51 910 770 284",
+  },
+  hero: {
+    title: "Elegancia en",
+    titleHighlight: "cada flor",
+    subtitle: "Arreglos florales exclusivos que expresan tus sentimientos más profundos. Calidad premium, creatividad sin límites y entrega puntual.",
+    ctaText: "Ver Catálogo",
+    ctaSecondary: "Hacer Pedido",
+    image: "https://images.unsplash.com/photo-1706064955769-2e6208cb1671?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200",
+  },
+  about: {
+    title: "Nuestra Esencia",
+    subtitle: "Más que flores, creamos momentos",
+    description: "En TYRELL nos apasiona el arte floral. Cada arreglo es diseñado con esmero, seleccionando las flores más frescas y combinándolas con creatividad para crear piezas únicas que transmiten emociones genuinas.",
+    features: [
+      {
+        title: "Flores Frescas",
+        description: "Seleccionamos las mejores flores cada día para garantizar frescura y durabilidad en cada arreglo.",
+        icon: "Flower2",
+      },
+      {
+        title: "Diseño Exclusivo",
+        description: "Cada creación es única, diseñada con pasión y atención al detalle para sorprender.",
+        icon: "Sparkles",
+      },
+      {
+        title: "Entrega Puntual",
+        description: "Tu pedido llegará en el momento perfecto, porque cada segundo cuenta cuando se trata de emociones.",
+        icon: "Clock",
+      },
+    ],
+    image: "https://images.unsplash.com/photo-1584515453937-c00929e621d1?crop=entropy&cs=srgb&fm=jpg&q=85&w=800",
+  },
+  services: [
+    {
+      id: 1,
+      title: "Arreglos Florales",
+      description: "Composiciones artísticas con las flores más selectas, perfectas para decorar cualquier espacio con elegancia y distinción.",
+      image: "https://images.unsplash.com/photo-1487530811176-3780de880c2d?crop=entropy&cs=srgb&fm=jpg&q=85&w=600",
+      tag: "Popular",
+    },
+    {
+      id: 2,
+      title: "Ramos Personalizados",
+      description: "Diseñamos ramos a tu medida, eligiendo colores, flores y estilos que reflejen tu mensaje personal.",
+      image: "https://images.unsplash.com/photo-1705807088510-02da367dcda8?crop=entropy&cs=srgb&fm=jpg&q=85&w=600",
+      tag: "Exclusivo",
+    },
+    {
+      id: 3,
+      title: "Regalos Especiales",
+      description: "Complementa tus flores con detalles únicos: chocolates, peluches y accesorios para crear el regalo perfecto.",
+      image: "https://images.unsplash.com/photo-1618239265038-9e4c865fbd10?crop=entropy&cs=srgb&fm=jpg&q=85&w=600",
+      tag: "Nuevo",
+    },
+    {
+      id: 4,
+      title: "Eventos & Bodas",
+      description: "Decoración floral completa para bodas, quinceañeros, aniversarios y todo tipo de celebraciones especiales.",
+      image: "https://images.unsplash.com/photo-1551468220-0a25172193f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=600",
+      tag: "Premium",
+    },
+    {
+      id: 5,
+      title: "Tulipanes Elegantes",
+      description: "Hermosos arreglos con tulipanes importados, símbolo de amor perfecto y elegancia atemporal.",
+      image: "https://images.unsplash.com/photo-1613386080939-170e1e833f70?crop=entropy&cs=srgb&fm=jpg&q=85&w=600",
+      tag: "Temporada",
+    },
+  ],
+  testimonials: [
+    {
+      name: "María García",
+      text: "Los arreglos de TYRELL son simplemente hermosos. Siempre llegan frescos y puntuales. ¡Mi florería favorita!",
+      rating: 5,
+    },
+    {
+      name: "Carlos Mendoza",
+      text: "Sorprendí a mi esposa con un ramo personalizado y quedó encantada. La calidad y el detalle son excepcionales.",
+      rating: 5,
+    },
+    {
+      name: "Ana Lucía Torres",
+      text: "La decoración floral de mi boda fue un sueño hecho realidad. El equipo de TYRELL superó todas mis expectativas.",
+      rating: 5,
+    },
+  ],
+  contact: {
+    title: "Contáctanos",
+    subtitle: "Estamos aquí para hacer realidad tu visión floral",
+    address: "Moyobamba, San Martín, Perú",
+    whatsappLabel: "Escríbenos por WhatsApp",
+    scheduleTitle: "Horario de Atención",
+    schedule: "Lunes a Sábado: 8:00 AM - 7:00 PM",
+    scheduleWeekend: "Domingos: 9:00 AM - 2:00 PM",
+  },
+};
