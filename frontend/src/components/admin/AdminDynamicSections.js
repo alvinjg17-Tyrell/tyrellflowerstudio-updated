@@ -39,7 +39,7 @@ export const AdminDynamicSections = ({ sections, setSections }) => {
     try {
       setLoading(true);
       const result = await api.uploadFile(file);
-      const imageUrl = `${process.env.REACT_APP_BACKEND_URL}${result.url}`;
+      const imageUrl = `https://tyrellflowerstudio-updated-production.up.railway.app${result.url}`;
       setFormData(prev => ({ ...prev, image: imageUrl }));
       toast.success("Imagen subida");
     } catch (err) {

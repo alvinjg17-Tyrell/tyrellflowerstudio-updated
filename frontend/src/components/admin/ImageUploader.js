@@ -3,7 +3,7 @@ import { Upload, Loader2, X, Image as ImageIcon } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = "https://tyrellflowerstudio-updated-production.up.railway.app";
 
 export const ImageUploader = ({ value, onChange, label, multiple = false, images = [], onImagesChange }) => {
   const [uploading, setUploading] = useState(false);

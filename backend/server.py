@@ -259,11 +259,15 @@ class ProductItem(BaseModel):
     id: str = ""
     name: str = ""
     image: str = ""
-    images: List[str] = []  # Additional images for lightbox
-    video: str = ""  # Optional video
-    imagePosition: dict = {}  # {x: 0, y: 0, scale: 1} for cropping
+    images: List[str] = []
+    video: str = ""
+    imagePosition: dict = {}
     price: str = ""
+    buttonText: str = "PEDIR"
+    buttonBgColor: str = "#e8d8b8"
+    buttonTextColor: str = "#7a5a1f"
     order: int = 0
+    active: bool = True
 
 class CategoryCreate(BaseModel):
     name: str

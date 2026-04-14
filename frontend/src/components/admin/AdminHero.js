@@ -9,7 +9,7 @@ import { Save, Loader2, Video, Upload, Image as ImageIcon } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = "https://tyrellflowerstudio-updated-production.up.railway.app";
 
 export const AdminHero = ({ content, onSave, saving }) => {
   const [form, setForm] = useState({

@@ -24,7 +24,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = "https://tyrellflowerstudio-updated-production.up.railway.app";
 
 // Helper function to fix image URLs
 const fixImageUrl = (url) => {
@@ -313,7 +313,6 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
       style={style}
       className="bg-white border border-gray-200 rounded-lg overflow-hidden w-[180px] flex-shrink-0"
     >
-      {/* Drag handle */}
       <div
         {...attributes}
         {...listeners}
@@ -322,8 +321,9 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
         <GripVertical className="w-4 h-4 text-gray-400" />
         <span className="text-[10px] text-gray-400 uppercase">Arrastra</span>
       </div>
-      
+
       <ProductGalleryEditor product={product} onUpdate={onUpdate} />
+
       <div className="p-2 space-y-1.5">
         <Input
           value={product.name || ""}
@@ -331,15 +331,57 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
           placeholder="Nombre del producto"
           className="h-8 text-xs rounded border-gray-200"
         />
+
         <Input
           value={product.price || ""}
           onChange={(e) => onUpdate({ ...product, price: e.target.value })}
           placeholder="Precio (opcional)"
           className="h-7 text-xs rounded border-gray-200"
         />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+          <div>
+            <Input
+              value={product.buttonText || ""}
+              onChange={(e) => onUpdate({ ...product, buttonText: e.target.value })}
+              placeholder="Texto del botón"
+              className="h-7 text-xs rounded border-gray-200"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-gray-500 whitespace-nowrap">
+              Fondo botón
+            </label>
+            <input
+              type="color"
+              value={product.buttonBgColor || "#e8d8b8"}
+              onChange={(e) =>
+                onUpdate({ ...product, buttonBgColor: e.target.value })
+              }
+              className="h-7 w-full rounded border border-gray-200"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-gray-500 whitespace-nowrap">
+              Texto botón
+            </label>
+            <input
+              type="color"
+              value={product.buttonTextColor || "#7a5a1f"}
+              onChange={(e) =>
+                onUpdate({ ...product, buttonTextColor: e.target.value })
+              }
+              className="h-7 w-full rounded border border-gray-200"
+            />
+          </div>
+        </div>
+
         {allMedia.length > 1 && (
           <p className="text-[10px] text-tyrell-gold">{allMedia.length} archivos</p>
         )}
+
         <button
           onClick={onDelete}
           className="w-full text-[10px] text-red-400 hover:text-red-600 py-1 transition-colors"
@@ -350,7 +392,6 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
     </div>
   );
 };
-
 // Category section with its products
 const CategorySection = ({ category, onUpdate, onDelete, saving, dragHandleProps }) => {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -397,22 +438,26 @@ const CategorySection = ({ category, onUpdate, onDelete, saving, dragHandleProps
     }
   };
 
-  const addProduct = () => {
-    const newProduct = {
-      id: `temp-${Date.now()}`,
-      name: "",
-      image: "",
-      images: [],
-      video: "",
-      imagePosition: { x: 50, y: 50 },
-      price: "",
-      order: localCategory.products.length
-    };
-    setLocalCategory(prev => ({
-      ...prev,
-      products: [...prev.products, newProduct]
-    }));
+const addProduct = () => {
+  const newProduct = {
+    id: `temp-${Date.now()}`,
+    name: "",
+    image: "",
+    images: [],
+    video: "",
+    imagePosition: { x: 50, y: 50 },
+    price: "",
+    buttonText: "PEDIR",
+    buttonBgColor: "#e8d8b8",
+    buttonTextColor: "#7a5a1f",
+    order: localCategory.products.length
   };
+
+  setLocalCategory(prev => ({
+    ...prev,
+    products: [...prev.products, newProduct]
+  }));
+};
 
   const updateProduct = (index, updatedProduct) => {
     setLocalCategory(prev => ({
@@ -429,11 +474,12 @@ const CategorySection = ({ category, onUpdate, onDelete, saving, dragHandleProps
     }));
   };
 
-  const handleSave = () => {
-    onUpdate(localCategory);
-  };
+const handleSave = () => {
+  onUpdate(localCategory);
+};
 
-  return (
+return (
+
     <div className="bg-white border border-tyrell-gold/20 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between p-4 bg-tyrell-ivory">
         {/* Drag handle */}
