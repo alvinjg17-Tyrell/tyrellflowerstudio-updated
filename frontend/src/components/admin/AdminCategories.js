@@ -1,8 +1,21 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { Plus, Trash2, Save, Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, Video, ChevronRight, ChevronLeft, GripVertical } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Save,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Image as ImageIcon,
+  X,
+  Video,
+  ChevronRight,
+  ChevronLeft,
+  GripVertical,
+} from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import {
@@ -26,15 +39,49 @@ import { CSS } from "@dnd-kit/utilities";
 
 const BACKEND_URL = "https://tyrellflowerstudio-updated-production.up.railway.app";
 
-// Helper function to fix image URLs
 const fixImageUrl = (url) => {
   if (!url) return url;
-  if (url.includes('.preview.emergentagent.com/api/uploads/')) {
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.includes(".preview.emergentagent.com/api/uploads/")) {
     const match = url.match(/\/api\/uploads\/.+/);
     return match ? `${BACKEND_URL}${match[0]}` : url;
   }
-  return url;
+  if (url.startsWith("/")) return `${BACKEND_URL}${url}`;
+  return `${BACKEND_URL}/${url}`;
 };
+
+const slugify = (text = "") =>
+  text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+const normalizeProduct = (product = {}, order = 0) => ({
+  id: product.id || `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  name: product.name || "",
+  slug: product.slug || "",
+  subtitle: product.subtitle || "",
+  description: product.description || "",
+  image: product.image || "",
+  images: Array.isArray(product.images) ? product.images : [],
+  video: product.video || "",
+  imagePosition: product.imagePosition || { x: 50, y: 50 },
+  price: product.price || "",
+  tag: product.tag || "",
+  buttonText: product.buttonText || "PEDIR",
+  buttonBgColor: product.buttonBgColor || "#e8d8b8",
+  buttonTextColor: product.buttonTextColor || "#7a5a1f",
+  order:
+    typeof product.order === "number"
+      ? product.order
+      : order,
+  active: product.active !== false,
+});
 
 // Multi-image gallery for a product
 const ProductGalleryEditor = ({ product, onUpdate }) => {
@@ -43,39 +90,38 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
   const fileRef = useRef(null);
   const videoRef = useRef(null);
 
-  const allMedia = [
-    product.image, 
-    ...(product.images || []),
-    product.video
-  ].filter(Boolean);
+  const allMedia = [product.image, ...(product.images || []), product.video].filter(Boolean);
 
   const handleUpload = async (e, isVideo = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
+
       const res = await axios.post(`${BACKEND_URL}/api/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+
       const url = `${BACKEND_URL}${res.data.url}`;
-      
+
       if (isVideo) {
         onUpdate({ ...product, video: url });
       } else if (!product.image) {
-        onUpdate({ 
-          ...product, 
+        onUpdate({
+          ...product,
           image: url,
-          imagePosition: { x: 50, y: 50 }
+          imagePosition: product.imagePosition || { x: 50, y: 50 },
         });
       } else {
-        onUpdate({ 
-          ...product, 
-          images: [...(product.images || []), url]
+        onUpdate({
+          ...product,
+          images: [...(product.images || []), url],
         });
       }
+
       toast.success(isVideo ? "Video subido" : "Imagen subida");
     } catch (err) {
       toast.error("Error subiendo archivo");
@@ -93,17 +139,21 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
         onUpdate({
           ...product,
           image: newImages[0],
-          images: newImages.slice(1)
+          images: newImages.slice(1),
         });
       } else {
-        onUpdate({ ...product, image: "", imagePosition: {} });
+        onUpdate({
+          ...product,
+          image: "",
+          imagePosition: { x: 50, y: 50 },
+        });
       }
     } else {
       const adjustedIndex = index - 1;
       if (product.images && product.images[adjustedIndex]) {
         onUpdate({
           ...product,
-          images: product.images.filter((_, i) => i !== adjustedIndex)
+          images: product.images.filter((_, i) => i !== adjustedIndex),
         });
       } else if (product.video) {
         onUpdate({ ...product, video: "" });
@@ -114,19 +164,23 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
 
   const displayMedia = allMedia.map(fixImageUrl);
   const currentMedia = displayMedia[activeIndex];
-  const isVideo = currentMedia?.includes('.mp4') || currentMedia?.includes('.mov') || currentMedia?.includes('.MOV');
+  const isCurrentVideo =
+    currentMedia?.includes(".mp4") ||
+    currentMedia?.includes(".mov") ||
+    currentMedia?.includes(".MOV") ||
+    currentMedia?.includes(".webm");
 
   return (
     <div className="space-y-2">
       <div className="relative aspect-[3/4] bg-gray-100 rounded overflow-hidden group">
         {displayMedia.length > 0 ? (
           <>
-            {isVideo ? (
+            {isCurrentVideo ? (
               <video
                 src={currentMedia}
                 className="w-full h-full object-cover"
                 style={{
-                  objectPosition: `${product.imagePosition?.x || 50}% ${product.imagePosition?.y || 50}%`
+                  objectPosition: `${product.imagePosition?.x || 50}% ${product.imagePosition?.y || 50}%`,
                 }}
                 muted
                 loop
@@ -139,7 +193,7 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
                 alt={product.name || "Producto"}
                 className="w-full h-full object-cover"
                 style={{
-                  objectPosition: `${product.imagePosition?.x || 50}% ${product.imagePosition?.y || 50}%`
+                  objectPosition: `${product.imagePosition?.x || 50}% ${product.imagePosition?.y || 50}%`,
                 }}
               />
             )}
@@ -147,13 +201,20 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
             {displayMedia.length > 1 && (
               <>
                 <button
-                  onClick={() => setActiveIndex(prev => (prev - 1 + displayMedia.length) % displayMedia.length)}
+                  type="button"
+                  onClick={() =>
+                    setActiveIndex((prev) => (prev - 1 + displayMedia.length) % displayMedia.length)
+                  }
                   className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/80 rounded-full flex items-center justify-center shadow hover:bg-white"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
+
                 <button
-                  onClick={() => setActiveIndex(prev => (prev + 1) % displayMedia.length)}
+                  type="button"
+                  onClick={() =>
+                    setActiveIndex((prev) => (prev + 1) % displayMedia.length)
+                  }
                   className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/80 rounded-full flex items-center justify-center shadow hover:bg-white"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -168,6 +229,7 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
             )}
 
             <button
+              type="button"
               onClick={() => removeMedia(activeIndex)}
               className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
             >
@@ -176,6 +238,7 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
           </>
         ) : (
           <button
+            type="button"
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
@@ -195,10 +258,16 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
       {displayMedia.length > 0 && (
         <div className="flex gap-1 overflow-x-auto">
           {displayMedia.map((media, i) => {
-            const isVid = media?.includes('.mp4') || media?.includes('.mov') || media?.includes('.MOV');
+            const isVid =
+              media?.includes(".mp4") ||
+              media?.includes(".mov") ||
+              media?.includes(".MOV") ||
+              media?.includes(".webm");
+
             return (
               <button
-                key={i}
+                key={`${media}-${i}`}
+                type="button"
                 onClick={() => setActiveIndex(i)}
                 className={`w-10 h-10 flex-shrink-0 rounded overflow-hidden border-2 ${
                   activeIndex === i ? "border-tyrell-gold" : "border-transparent"
@@ -219,13 +288,16 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
 
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
           className="flex-1 py-1.5 text-[10px] uppercase tracking-wider border border-dashed border-gray-300 rounded hover:border-tyrell-gold hover:text-tyrell-gold transition-colors flex items-center justify-center gap-1"
         >
           <Plus className="w-3 h-3" /> Imagen
         </button>
+
         <button
+          type="button"
           onClick={() => videoRef.current?.click()}
           disabled={uploading}
           className="flex-1 py-1.5 text-[10px] uppercase tracking-wider border border-dashed border-gray-300 rounded hover:border-tyrell-gold hover:text-tyrell-gold transition-colors flex items-center justify-center gap-1"
@@ -236,7 +308,10 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
 
       {product.image && (
         <div className="space-y-1 pt-2 border-t border-gray-100">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider">Posición imagen principal</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+            Posición imagen principal
+          </p>
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-[9px] text-gray-400">Horizontal</label>
@@ -245,13 +320,19 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
                 min="0"
                 max="100"
                 value={product.imagePosition?.x || 50}
-                onChange={(e) => onUpdate({
-                  ...product,
-                  imagePosition: { ...product.imagePosition, x: parseInt(e.target.value) }
-                })}
+                onChange={(e) =>
+                  onUpdate({
+                    ...product,
+                    imagePosition: {
+                      ...(product.imagePosition || {}),
+                      x: parseInt(e.target.value, 10),
+                    },
+                  })
+                }
                 className="w-full h-1 accent-tyrell-gold"
               />
             </div>
+
             <div>
               <label className="text-[9px] text-gray-400">Vertical</label>
               <input
@@ -259,17 +340,22 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
                 min="0"
                 max="100"
                 value={product.imagePosition?.y || 50}
-                onChange={(e) => onUpdate({
-                  ...product,
-                  imagePosition: { ...product.imagePosition, y: parseInt(e.target.value) }
-                })}
+                onChange={(e) =>
+                  onUpdate({
+                    ...product,
+                    imagePosition: {
+                      ...(product.imagePosition || {}),
+                      y: parseInt(e.target.value, 10),
+                    },
+                  })
+                }
                 className="w-full h-1 accent-tyrell-gold"
               />
             </div>
           </div>
         </div>
       )}
-      
+
       <input
         ref={fileRef}
         type="file"
@@ -280,7 +366,7 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
       <input
         ref={videoRef}
         type="file"
-        accept="video/mp4,video/quicktime,video/mov"
+        accept="video/mp4,video/quicktime,video/mov,video/webm"
         onChange={(e) => handleUpload(e, true)}
         className="hidden"
       />
@@ -288,7 +374,6 @@ const ProductGalleryEditor = ({ product, onUpdate }) => {
   );
 };
 
-// Sortable product card
 const SortableProductCard = ({ product, onUpdate, onDelete }) => {
   const {
     attributes,
@@ -311,7 +396,7 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-white border border-gray-200 rounded-lg overflow-hidden w-[180px] flex-shrink-0"
+      className="bg-white border border-gray-200 rounded-lg overflow-hidden w-[260px] flex-shrink-0"
     >
       <div
         {...attributes}
@@ -324,11 +409,25 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
 
       <ProductGalleryEditor product={product} onUpdate={onUpdate} />
 
-      <div className="p-2 space-y-1.5">
+      <div className="p-3 space-y-2">
         <Input
           value={product.name || ""}
-          onChange={(e) => onUpdate({ ...product, name: e.target.value })}
+          onChange={(e) => {
+            const name = e.target.value;
+            onUpdate({
+              ...product,
+              name,
+              slug: product.slug ? product.slug : slugify(name),
+            });
+          }}
           placeholder="Nombre del producto"
+          className="h-8 text-xs rounded border-gray-200"
+        />
+
+        <Input
+          value={product.slug || ""}
+          onChange={(e) => onUpdate({ ...product, slug: slugify(e.target.value) })}
+          placeholder="slug-producto"
           className="h-8 text-xs rounded border-gray-200"
         />
 
@@ -336,46 +435,77 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
           value={product.price || ""}
           onChange={(e) => onUpdate({ ...product, price: e.target.value })}
           placeholder="Precio (opcional)"
-          className="h-7 text-xs rounded border-gray-200"
+          className="h-8 text-xs rounded border-gray-200"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-          <div>
-            <Input
-              value={product.buttonText || ""}
-              onChange={(e) => onUpdate({ ...product, buttonText: e.target.value })}
-              placeholder="Texto del botón"
-              className="h-7 text-xs rounded border-gray-200"
-            />
-          </div>
+        <Input
+          value={product.tag || ""}
+          onChange={(e) => onUpdate({ ...product, tag: e.target.value })}
+          placeholder="Etiqueta (opcional)"
+          className="h-8 text-xs rounded border-gray-200"
+        />
 
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-gray-500 whitespace-nowrap">
-              Fondo botón
-            </label>
-            <input
-              type="color"
-              value={product.buttonBgColor || "#e8d8b8"}
-              onChange={(e) =>
-                onUpdate({ ...product, buttonBgColor: e.target.value })
-              }
-              className="h-7 w-full rounded border border-gray-200"
-            />
-          </div>
+        <Input
+          value={product.subtitle || ""}
+          onChange={(e) => onUpdate({ ...product, subtitle: e.target.value })}
+          placeholder="Subtítulo del producto"
+          className="h-8 text-xs rounded border-gray-200"
+        />
 
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-gray-500 whitespace-nowrap">
-              Texto botón
-            </label>
-            <input
-              type="color"
-              value={product.buttonTextColor || "#7a5a1f"}
-              onChange={(e) =>
-                onUpdate({ ...product, buttonTextColor: e.target.value })
-              }
-              className="h-7 w-full rounded border border-gray-200"
-            />
+        <textarea
+          value={product.description || ""}
+          onChange={(e) => onUpdate({ ...product, description: e.target.value })}
+          placeholder="Descripción del producto"
+          className="w-full min-h-[90px] rounded border border-gray-200 px-3 py-2 text-xs resize-y focus:outline-none focus:ring-1 focus:ring-tyrell-gold"
+        />
+
+        <div className="grid grid-cols-1 gap-2 pt-1">
+          <Input
+            value={product.buttonText || ""}
+            onChange={(e) => onUpdate({ ...product, buttonText: e.target.value })}
+            placeholder="Texto del botón"
+            className="h-8 text-xs rounded border-gray-200"
+          />
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] text-gray-500 whitespace-nowrap">
+                Fondo
+              </label>
+              <input
+                type="color"
+                value={product.buttonBgColor || "#e8d8b8"}
+                onChange={(e) =>
+                  onUpdate({ ...product, buttonBgColor: e.target.value })
+                }
+                className="h-8 w-full rounded border border-gray-200"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] text-gray-500 whitespace-nowrap">
+                Texto
+              </label>
+              <input
+                type="color"
+                value={product.buttonTextColor || "#7a5a1f"}
+                onChange={(e) =>
+                  onUpdate({ ...product, buttonTextColor: e.target.value })
+                }
+                className="h-8 w-full rounded border border-gray-200"
+              />
+            </div>
           </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <label className="text-[11px] text-gray-500">Mostrar producto</label>
+          <input
+            type="checkbox"
+            checked={product.active !== false}
+            onChange={(e) => onUpdate({ ...product, active: e.target.checked })}
+            className="h-4 w-4 accent-tyrell-gold"
+          />
         </div>
 
         {allMedia.length > 1 && (
@@ -383,6 +513,7 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
         )}
 
         <button
+          type="button"
           onClick={onDelete}
           className="w-full text-[10px] text-red-400 hover:text-red-600 py-1 transition-colors"
         >
@@ -392,17 +523,31 @@ const SortableProductCard = ({ product, onUpdate, onDelete }) => {
     </div>
   );
 };
-// Category section with its products
-const CategorySection = ({ category, onUpdate, onDelete, saving, dragHandleProps }) => {
+
+const CategorySection = ({
+  category,
+  onUpdate,
+  onDelete,
+  saving,
+  dragHandleProps,
+}) => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [localCategory, setLocalCategory] = useState(category);
+  const [localCategory, setLocalCategory] = useState({
+    ...category,
+    products: (category.products || []).map((p, index) => normalizeProduct(p, index)),
+  });
   const scrollRef = useRef(null);
+
+  useEffect(() => {
+    setLocalCategory({
+      ...category,
+      products: (category.products || []).map((p, index) => normalizeProduct(p, index)),
+    });
+  }, [category]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
@@ -417,90 +562,97 @@ const CategorySection = ({ category, onUpdate, onDelete, saving, dragHandleProps
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
-    
-    if (active.id !== over.id) {
-      setLocalCategory((prev) => {
-        const oldIndex = prev.products.findIndex((p) => p.id === active.id);
-        const newIndex = prev.products.findIndex((p) => p.id === over.id);
-        
-        return {
-          ...prev,
-          products: arrayMove(prev.products, oldIndex, newIndex),
-        };
-      });
-    }
+    if (!over || active.id === over.id) return;
+
+    setLocalCategory((prev) => {
+      const oldIndex = prev.products.findIndex((p) => p.id === active.id);
+      const newIndex = prev.products.findIndex((p) => p.id === over.id);
+
+      return {
+        ...prev,
+        products: arrayMove(prev.products, oldIndex, newIndex).map((p, index) => ({
+          ...p,
+          order: index,
+        })),
+      };
+    });
   };
 
   const scrollCarousel = (direction) => {
-    if (scrollRef.current) {
-      const scrollAmount = direction === 'left' ? -200 : 200;
-      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
+    if (!scrollRef.current) return;
+    const scrollAmount = direction === "left" ? -260 : 260;
+    scrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
   };
 
-const addProduct = () => {
-  const newProduct = {
-    id: `temp-${Date.now()}`,
-    name: "",
-    image: "",
-    images: [],
-    video: "",
-    imagePosition: { x: 50, y: 50 },
-    price: "",
-    buttonText: "PEDIR",
-    buttonBgColor: "#e8d8b8",
-    buttonTextColor: "#7a5a1f",
-    order: localCategory.products.length
+  const addProduct = () => {
+    const newProduct = normalizeProduct({}, localCategory.products.length);
+    setLocalCategory((prev) => ({
+      ...prev,
+      products: [...prev.products, newProduct],
+    }));
   };
-
-  setLocalCategory(prev => ({
-    ...prev,
-    products: [...prev.products, newProduct]
-  }));
-};
 
   const updateProduct = (index, updatedProduct) => {
-    setLocalCategory(prev => ({
+    setLocalCategory((prev) => ({
       ...prev,
-      products: prev.products.map((p, i) => i === index ? updatedProduct : p)
+      products: prev.products.map((p, i) =>
+        i === index ? normalizeProduct(updatedProduct, i) : p
+      ),
     }));
   };
 
   const deleteProduct = (index) => {
     if (!window.confirm("¿Eliminar este producto?")) return;
-    setLocalCategory(prev => ({
+
+    setLocalCategory((prev) => ({
       ...prev,
-      products: prev.products.filter((_, i) => i !== index)
+      products: prev.products
+        .filter((_, i) => i !== index)
+        .map((p, i) => ({ ...p, order: i })),
     }));
   };
 
-const handleSave = () => {
-  onUpdate(localCategory);
-};
+  const handleSave = () => {
+    onUpdate({
+      ...localCategory,
+      products: localCategory.products.map((p, index) => ({
+        ...normalizeProduct(p, index),
+        order: index,
+      })),
+    });
+  };
 
-return (
-
+  return (
     <div className="bg-white border border-tyrell-gold/20 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between p-4 bg-tyrell-ivory">
-        {/* Drag handle */}
-        <div 
+        <div
           {...dragHandleProps}
           className="cursor-grab active:cursor-grabbing p-2 hover:bg-white/50 rounded mr-2 touch-none"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="w-5 h-5 text-gray-400" />
         </div>
-        
-        <div 
+
+        <div
           className="flex items-center gap-3 flex-1 cursor-pointer"
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={() => setIsExpanded((prev) => !prev)}
         >
-          {isExpanded ? <ChevronUp className="w-4 h-4 text-tyrell-gold" /> : <ChevronDown className="w-4 h-4 text-tyrell-gold" />}
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-tyrell-gold" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-tyrell-gold" />
+          )}
+
           <div>
-            <h3 className="font-display text-lg text-tyrell-dark">{localCategory.name || "Nueva Categoría"}</h3>
-            <span className="text-xs text-gray-500">{localCategory.products.length} productos</span>
+            <h3 className="font-display text-lg text-tyrell-dark">
+              {localCategory.name || "Nueva Categoría"}
+            </h3>
+            <span className="text-xs text-gray-500">
+              {localCategory.products.length} productos
+            </span>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
           <Button
             onClick={handleSave}
@@ -508,10 +660,16 @@ return (
             size="sm"
             className="bg-tyrell-gold hover:bg-tyrell-gold-dark text-white text-xs h-8"
           >
-            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+            {saving ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Save className="w-3 h-3 mr-1" />
+            )}
             Guardar
           </Button>
+
           <button
+            type="button"
             onClick={() => onDelete(category.id)}
             className="p-2 text-red-400 hover:text-red-600 transition-colors"
           >
@@ -524,19 +682,31 @@ return (
         <div className="p-4 space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs uppercase text-gray-500 mb-1">Nombre de la categoría</label>
+              <label className="block text-xs uppercase text-gray-500 mb-1">
+                Nombre de la categoría
+              </label>
               <Input
-                value={localCategory.name}
-                onChange={(e) => setLocalCategory(prev => ({ ...prev, name: e.target.value }))}
+                value={localCategory.name || ""}
+                onChange={(e) =>
+                  setLocalCategory((prev) => ({ ...prev, name: e.target.value }))
+                }
                 placeholder="Ej: Ramos, Flower Box, etc."
                 className="rounded border-gray-200"
               />
             </div>
+
             <div>
-              <label className="block text-xs uppercase text-gray-500 mb-1">Descripción (opcional)</label>
+              <label className="block text-xs uppercase text-gray-500 mb-1">
+                Descripción (opcional)
+              </label>
               <Input
-                value={localCategory.description}
-                onChange={(e) => setLocalCategory(prev => ({ ...prev, description: e.target.value }))}
+                value={localCategory.description || ""}
+                onChange={(e) =>
+                  setLocalCategory((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
                 placeholder="Descripción breve"
                 className="rounded border-gray-200"
               />
@@ -545,7 +715,10 @@ return (
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="text-xs uppercase text-gray-500">Productos en esta categoría</label>
+              <label className="text-xs uppercase text-gray-500">
+                Productos en esta categoría
+              </label>
+
               <Button
                 onClick={addProduct}
                 size="sm"
@@ -558,17 +731,19 @@ return (
 
             {localCategory.products.length > 0 ? (
               <div className="relative">
-                {/* Navigation buttons */}
-                {localCategory.products.length > 3 && (
+                {localCategory.products.length > 2 && (
                   <>
                     <button
-                      onClick={() => scrollCarousel('left')}
+                      type="button"
+                      onClick={() => scrollCarousel("left")}
                       className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-md hover:bg-gray-50"
                     >
                       <ChevronLeft className="w-5 h-5 text-gray-600" />
                     </button>
+
                     <button
-                      onClick={() => scrollCarousel('right')}
+                      type="button"
+                      onClick={() => scrollCarousel("right")}
                       className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-md hover:bg-gray-50"
                     >
                       <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -582,13 +757,13 @@ return (
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext
-                    items={localCategory.products.map(p => p.id)}
+                    items={localCategory.products.map((p) => p.id)}
                     strategy={horizontalListSortingStrategy}
                   >
-                    <div 
+                    <div
                       ref={scrollRef}
-                      className="flex gap-3 overflow-x-auto pb-2 px-1 scrollbar-hide" 
-                      style={{ scrollbarWidth: 'none' }}
+                      className="flex gap-3 overflow-x-auto pb-2 px-1 scrollbar-hide"
+                      style={{ scrollbarWidth: "none" }}
                     >
                       {localCategory.products.map((product, index) => (
                         <SortableProductCard
@@ -601,48 +776,70 @@ return (
                     </div>
                   </SortableContext>
                 </DndContext>
+
                 <p className="text-[10px] text-gray-400 mt-2 text-center">
-                  Mantén presionado y arrastra para reordenar • Usa las flechas para navegar
+                  Mantén presionado y arrastra para reordenar
                 </p>
               </div>
             ) : (
               <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
                 <ImageIcon className="w-8 h-8 mx-auto text-gray-300 mb-2" />
                 <p className="text-sm text-gray-400">No hay productos en esta categoría</p>
-                <p className="text-xs text-gray-300">Haz clic en "Añadir Producto" para comenzar</p>
+                <p className="text-xs text-gray-300">
+                  Haz clic en "Añadir Producto" para comenzar
+                </p>
               </div>
             )}
           </div>
 
           <div className="pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 uppercase mb-2">Vista previa (como se verá en la página)</p>
+            <p className="text-xs text-gray-400 uppercase mb-2">
+              Vista previa
+            </p>
+
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-display text-xl text-tyrell-dark mb-3">{localCategory.name || "Nombre de categoría"}</h4>
+              <h4 className="font-display text-xl text-tyrell-dark mb-3">
+                {localCategory.name || "Nombre de categoría"}
+              </h4>
+
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {localCategory.products.slice(0, 5).map((product, i) => {
-                  const mediaCount = [product.image, ...(product.images || []), product.video].filter(Boolean).length;
                   const displayImage = fixImageUrl(product.image);
                   return (
-                    <div key={i} className="w-[120px] flex-shrink-0">
+                    <div key={i} className="w-[140px] flex-shrink-0">
                       <div className="aspect-[3/4] bg-gray-200 rounded overflow-hidden mb-2 relative">
                         {displayImage && (
-                          <img 
-                            src={displayImage} 
-                            alt={product.name} 
+                          <img
+                            src={displayImage}
+                            alt={product.name}
                             className="w-full h-full object-cover"
                             style={{
-                              objectPosition: `${product.imagePosition?.x || 50}% ${product.imagePosition?.y || 50}%`
+                              objectPosition: `${product.imagePosition?.x || 50}% ${product.imagePosition?.y || 50}%`,
                             }}
                           />
                         )}
-                        {mediaCount > 1 && (
-                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded">
-                            +{mediaCount - 1}
-                          </div>
-                        )}
                       </div>
-                      <p className="text-xs font-medium truncate">{product.name || "Nombre"}</p>
-                      <button className="text-[10px] text-tyrell-gold uppercase mt-1">Pedir</button>
+
+                      <p className="text-xs font-medium truncate">
+                        {product.name || "Nombre"}
+                      </p>
+
+                      {product.price && (
+                        <p className="text-[10px] text-gray-500 mt-1 truncate">
+                          {product.price}
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        className="text-[10px] uppercase mt-2 px-2 py-1 rounded"
+                        style={{
+                          backgroundColor: product.buttonBgColor || "#e8d8b8",
+                          color: product.buttonTextColor || "#7a5a1f",
+                        }}
+                      >
+                        {product.buttonText || "Pedir"}
+                      </button>
                     </div>
                   );
                 })}
@@ -655,7 +852,6 @@ return (
   );
 };
 
-// Sortable wrapper for categories
 const SortableCategoryWrapper = ({ category, onUpdate, onDelete, saving }) => {
   const {
     attributes,
@@ -690,9 +886,7 @@ export const AdminCategories = ({ categories, setCategories }) => {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
@@ -707,27 +901,25 @@ export const AdminCategories = ({ categories, setCategories }) => {
 
   const handleCategoryDragEnd = async (event) => {
     const { active, over } = event;
-    
-    if (active.id !== over.id) {
-      const oldIndex = categories.findIndex((c) => c.id === active.id);
-      const newIndex = categories.findIndex((c) => c.id === over.id);
-      
-      const newCategories = arrayMove(categories, oldIndex, newIndex).map((cat, index) => ({
-        ...cat,
-        order: index
-      }));
-      
-      setCategories(newCategories);
-      
-      // Save the new order to backend
-      try {
-        for (const cat of newCategories) {
-          await api.updateCategory(cat.id, { ...cat, order: cat.order });
-        }
-        toast.success("Orden de categorías guardado");
-      } catch (err) {
-        toast.error("Error guardando orden");
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = categories.findIndex((c) => c.id === active.id);
+    const newIndex = categories.findIndex((c) => c.id === over.id);
+
+    const newCategories = arrayMove(categories, oldIndex, newIndex).map((cat, index) => ({
+      ...cat,
+      order: index,
+    }));
+
+    setCategories(newCategories);
+
+    try {
+      for (const cat of newCategories) {
+        await api.updateCategory(cat.id, { ...cat, order: cat.order });
       }
+      toast.success("Orden de categorías guardado");
+    } catch (err) {
+      toast.error("Error guardando orden");
     }
   };
 
@@ -739,9 +931,9 @@ export const AdminCategories = ({ categories, setCategories }) => {
         description: "",
         products: [],
         order: categories.length,
-        active: true
+        active: true,
       });
-      setCategories(prev => [...prev, newCategory]);
+      setCategories((prev) => [...prev, newCategory]);
       toast.success("Categoría creada");
     } catch (err) {
       toast.error("Error creando categoría");
@@ -753,14 +945,23 @@ export const AdminCategories = ({ categories, setCategories }) => {
   const updateCategory = async (updatedCategory) => {
     try {
       setSaving(true);
+
+      const cleanedProducts = (updatedCategory.products || []).map((product, index) => ({
+        ...normalizeProduct(product, index),
+        order: index,
+      }));
+
       const result = await api.updateCategory(updatedCategory.id, {
         name: updatedCategory.name,
         description: updatedCategory.description,
-        products: updatedCategory.products,
+        products: cleanedProducts,
         order: updatedCategory.order,
-        active: updatedCategory.active !== false
+        active: updatedCategory.active !== false,
       });
-      setCategories(prev => prev.map(c => c.id === updatedCategory.id ? result : c));
+
+      setCategories((prev) =>
+        prev.map((c) => (c.id === updatedCategory.id ? result : c))
+      );
       toast.success("Categoría actualizada");
     } catch (err) {
       toast.error("Error actualizando categoría");
@@ -771,9 +972,10 @@ export const AdminCategories = ({ categories, setCategories }) => {
 
   const deleteCategory = async (id) => {
     if (!window.confirm("¿Eliminar esta categoría y todos sus productos?")) return;
+
     try {
       await api.deleteCategory(id);
-      setCategories(prev => prev.filter(c => c.id !== id));
+      setCategories((prev) => prev.filter((c) => c.id !== id));
       toast.success("Categoría eliminada");
     } catch (err) {
       toast.error("Error eliminando categoría");
@@ -784,9 +986,14 @@ export const AdminCategories = ({ categories, setCategories }) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-2xl text-tyrell-dark font-light">Categorías de Productos</h2>
-          <p className="text-sm text-gray-500 mt-1">Organiza tus productos por categorías. Arrastra para reordenar.</p>
+          <h2 className="font-display text-2xl text-tyrell-dark font-light">
+            Categorías de Productos
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Organiza tus productos por categorías. Arrastra para reordenar.
+          </p>
         </div>
+
         <Button
           onClick={addCategory}
           disabled={saving}
@@ -803,7 +1010,7 @@ export const AdminCategories = ({ categories, setCategories }) => {
           onDragEnd={handleCategoryDragEnd}
         >
           <SortableContext
-            items={categories.map(c => c.id)}
+            items={categories.map((c) => c.id)}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-4">
@@ -823,8 +1030,13 @@ export const AdminCategories = ({ categories, setCategories }) => {
         <div className="text-center py-12 bg-white border-2 border-dashed border-gray-200 rounded-lg">
           <ImageIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
           <h3 className="text-lg text-gray-500 mb-1">No hay categorías aún</h3>
-          <p className="text-sm text-gray-400 mb-4">Crea tu primera categoría para organizar tus productos</p>
-          <Button onClick={addCategory} className="bg-tyrell-gold hover:bg-tyrell-gold-dark text-white">
+          <p className="text-sm text-gray-400 mb-4">
+            Crea tu primera categoría para organizar tus productos
+          </p>
+          <Button
+            onClick={addCategory}
+            className="bg-tyrell-gold hover:bg-tyrell-gold-dark text-white"
+          >
             <Plus className="w-4 h-4 mr-2" /> Crear Primera Categoría
           </Button>
         </div>
