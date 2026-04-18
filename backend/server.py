@@ -97,6 +97,16 @@ class BrandContent(BaseModel):
     whatsappNumber: str = ""
 
 
+class NavMenuItem(BaseModel):
+    id: str = ""
+    label: str = ""
+    type: str = "route"  # route | anchor | dropdown | external
+    target: str = ""     # /nosotros | /#services | https://... | #bloque
+    visible: bool = True
+    order: int = 0
+    children: List["NavMenuItem"] = []
+
+
 class HeroContent(BaseModel):
     label: str = "Flower Studio"
     title: str = ""
@@ -119,11 +129,13 @@ class HeaderContent(BaseModel):
     topBarLeft: str = ""
     topBarRight: str = ""
     ctaText: str = "Ver Catálogo"
-    navItems: List[str] = []
+    navItems: List[NavMenuItem] = []
     topBarBgColor: str = "#B76E79"
     topBarTextColor: str = "#FFFFFF"
     ctaButtonColor: str = "#D8A7B1"
     ctaTextColor: str = "#FFFFFF"
+    dropdownBgColor: str = "#B76E79"
+    dropdownTextColor: str = "#FFFFFF"
 
 
 class AboutContent(BaseModel):
@@ -318,6 +330,9 @@ class CatalogLinkResponse(BaseModel):
     created_at: datetime
 
 
+NavMenuItem.model_rebuild()
+
+
 # ─── Default seed data ────────────────────────────────────
 
 DEFAULT_SITE = {
@@ -330,6 +345,74 @@ DEFAULT_SITE = {
         "location": "Jirón Pedro Pascasio Noriega, Moyobamba, Perú",
         "locationUrl": "https://www.google.com/maps/search/Jir%C3%B3n+Pedro+Pascasio+Noriega,+Moyobamba,+Per%C3%BA/@-6.0289855,-76.9782139,15.93z?hl=es&entry=ttu&g_ep=EgoyMDI2MDIwOC4wIKXMDSoASAFQAw%3D%3D",
         "whatsappNumber": "+51 910 770 284",
+    },
+    "header": {
+        "topBarLeft": "",
+        "topBarRight": "",
+        "ctaText": "Ver Catálogo",
+        "navItems": [
+            {
+                "id": "inicio",
+                "label": "Inicio",
+                "type": "route",
+                "target": "/",
+                "visible": True,
+                "order": 0,
+                "children": [],
+            },
+            {
+                "id": "nosotros",
+                "label": "Nosotros",
+                "type": "route",
+                "target": "/nosotros",
+                "visible": True,
+                "order": 1,
+                "children": [],
+            },
+            {
+                "id": "servicios",
+                "label": "Servicios",
+                "type": "dropdown",
+                "target": "",
+                "visible": True,
+                "order": 2,
+                "children": [
+                    {
+                        "id": "ver-destacados",
+                        "label": "Ver destacados",
+                        "type": "anchor",
+                        "target": "/#services",
+                        "visible": True,
+                        "order": 0,
+                        "children": [],
+                    },
+                    {
+                        "id": "ver-todo",
+                        "label": "Ver todo",
+                        "type": "anchor",
+                        "target": "/#catalogo-completo",
+                        "visible": True,
+                        "order": 1,
+                        "children": [],
+                    },
+                ],
+            },
+            {
+                "id": "contacto",
+                "label": "Contacto",
+                "type": "route",
+                "target": "/contacto",
+                "visible": True,
+                "order": 3,
+                "children": [],
+            },
+        ],
+        "topBarBgColor": "#B76E79",
+        "topBarTextColor": "#FFFFFF",
+        "ctaButtonColor": "#D8A7B1",
+        "ctaTextColor": "#FFFFFF",
+        "dropdownBgColor": "#B76E79",
+        "dropdownTextColor": "#FFFFFF",
     },
     "hero": {
         "label": "Flower Studio",
@@ -456,7 +539,6 @@ def optimize_image(input_path: Path, output_path: Path, max_size: tuple, quality
         with Image.open(input_path) as img:
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
-
             img.thumbnail(max_size, Image.Resampling.LANCZOS)
             img.save(output_path, "JPEG", quality=quality, optimize=True)
             return True
@@ -477,6 +559,26 @@ def slugify(value: str) -> str:
     while "--" in slug:
         slug = slug.replace("--", "-")
     return slug.strip("-")
+
+
+def normalize_nav_item(item: dict, index: int = 0) -> dict:
+    children = item.get("children", []) or []
+    normalized_children = [
+        normalize_nav_item(child, child_index)
+        for child_index, child in enumerate(children)
+    ]
+
+    item_id = item.get("id") or slugify(item.get("label", f"item-{index}")) or f"item-{index}"
+
+    return {
+        "id": item_id,
+        "label": item.get("label", ""),
+        "type": item.get("type", "route"),
+        "target": item.get("target", ""),
+        "visible": item.get("visible", True),
+        "order": item.get("order", index),
+        "children": normalized_children,
+    }
 
 
 def normalize_product(product: dict, index: int = 0) -> dict:
@@ -505,6 +607,57 @@ def normalize_product(product: dict, index: int = 0) -> dict:
     return normalized
 
 
+def normalize_header(header: dict | None) -> dict:
+    header = header or {}
+    raw_nav_items = header.get("navItems", []) or []
+
+    # Backward compatibility: if navItems is still a list of strings, convert it.
+    if raw_nav_items and isinstance(raw_nav_items[0], str):
+        converted = []
+        defaults = [
+            ("inicio", "/", "route"),
+            ("nosotros", "/nosotros", "route"),
+            ("servicios", "", "dropdown"),
+            ("contacto", "/contacto", "route"),
+        ]
+        for idx, label in enumerate(raw_nav_items):
+            item_id, target, item_type = defaults[idx] if idx < len(defaults) else (
+                slugify(label) or f"item-{idx}",
+                "",
+                "route",
+            )
+            converted.append(
+                {
+                    "id": item_id,
+                    "label": label,
+                    "type": item_type,
+                    "target": target,
+                    "visible": True,
+                    "order": idx,
+                    "children": [],
+                }
+            )
+        raw_nav_items = converted
+
+    normalized_nav_items = [
+        normalize_nav_item(item, index)
+        for index, item in enumerate(raw_nav_items)
+    ]
+
+    return {
+        "topBarLeft": header.get("topBarLeft", ""),
+        "topBarRight": header.get("topBarRight", ""),
+        "ctaText": header.get("ctaText", "Ver Catálogo"),
+        "navItems": normalized_nav_items,
+        "topBarBgColor": header.get("topBarBgColor", "#B76E79"),
+        "topBarTextColor": header.get("topBarTextColor", "#FFFFFF"),
+        "ctaButtonColor": header.get("ctaButtonColor", "#D8A7B1"),
+        "ctaTextColor": header.get("ctaTextColor", "#FFFFFF"),
+        "dropdownBgColor": header.get("dropdownBgColor", "#B76E79"),
+        "dropdownTextColor": header.get("dropdownTextColor", "#FFFFFF"),
+    }
+
+
 async def seed_data():
     existing = await db.site_content.find_one()
     if not existing:
@@ -512,16 +665,27 @@ async def seed_data():
         logger.info("Seeded site_content")
     else:
         update_fields = {}
+
         if "services" not in existing:
             update_fields["services"] = DEFAULT_SITE["services"]
+
         if "locationUrl" not in existing.get("brand", {}):
             update_fields["brand.locationUrl"] = DEFAULT_SITE["brand"]["locationUrl"]
+
         if "label" not in existing.get("hero", {}):
             update_fields["hero.label"] = DEFAULT_SITE["hero"]["label"]
+
         if "label" not in existing.get("about", {}):
             update_fields["about.label"] = DEFAULT_SITE["about"]["label"]
             update_fields["about.badgeNumber"] = DEFAULT_SITE["about"]["badgeNumber"]
             update_fields["about.badgeLabel"] = DEFAULT_SITE["about"]["badgeLabel"]
+
+        if "header" not in existing:
+            update_fields["header"] = DEFAULT_SITE["header"]
+        else:
+            normalized_header = normalize_header(existing.get("header", {}))
+            update_fields["header"] = normalized_header
+
         if update_fields:
             await db.site_content.update_one({}, {"$set": update_fields})
             logger.info("Updated site_content with new fields")
@@ -602,9 +766,11 @@ async def get_all_content():
         site.pop("_id", None)
         if "colorPalette" not in site:
             site["colorPalette"] = ColorPalette().dict()
+        site["header"] = normalize_header(site.get("header", {}))
     else:
-        site = DEFAULT_SITE
+        site = DEFAULT_SITE.copy()
         site["colorPalette"] = ColorPalette().dict()
+        site["header"] = normalize_header(site.get("header", {}))
 
     services = []
     async for svc in db.services.find().sort("order", 1):
@@ -643,6 +809,7 @@ async def get_all_content():
 @api_router.put("/content")
 async def update_site_content(content: SiteContent):
     content_dict = content.dict()
+    content_dict["header"] = normalize_header(content_dict.get("header", {}))
     await db.site_content.update_one({}, {"$set": content_dict}, upsert=True)
     return {"message": "Contenido actualizado", "data": content_dict}
 
@@ -712,7 +879,6 @@ async def get_product_by_slug(slug: str):
                         "description": cat.get("description", ""),
                     },
                 }
-
     raise HTTPException(status_code=404, detail="Producto no encontrado")
 
 

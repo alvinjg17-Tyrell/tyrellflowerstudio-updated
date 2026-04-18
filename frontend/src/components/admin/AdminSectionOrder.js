@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Save, Loader2, GripVertical, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,7 +28,15 @@ const defaultSections = [
   { id: "contact", name: "Contacto", visible: true },
 ];
 
-const SortableSection = ({ section, onToggleVisibility }) => {
+const getSectionDescription = (id) => {
+  if (id === "about") return "Sección con información sobre tu negocio";
+  if (id === "services") return "Catálogo de productos con categorías";
+  if (id === "catalogs") return "Enlaces externos a tus catálogos";
+  if (id === "contact") return "Formulario y datos de contacto";
+  return "Sección personalizada";
+};
+
+const SortableSection = ({ section, onToggleVisibility, onChangeName }) => {
   const {
     attributes,
     listeners,
@@ -47,33 +56,39 @@ const SortableSection = ({ section, onToggleVisibility }) => {
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-4 p-4 bg-white border rounded-lg ${
+      className={`flex items-start gap-4 p-4 bg-white border rounded-lg ${
         isDragging ? "shadow-lg border-tyrell-gold" : "border-gray-200"
       } ${!section.visible ? "opacity-50" : ""}`}
     >
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-100 rounded touch-none"
+        className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-100 rounded touch-none mt-1"
       >
         <GripVertical className="w-5 h-5 text-gray-400" />
       </div>
-      
+
       <div className="flex-1">
-        <span className="font-display text-lg text-tyrell-dark">{section.name}</span>
+        <label className="block text-[11px] uppercase text-gray-400 mb-1">
+          Nombre visible en el menú
+        </label>
+        <Input
+          value={section.name || ""}
+          onChange={(e) => onChangeName(section.id, e.target.value)}
+          placeholder="Nombre de la sección"
+          className="mb-2"
+        />
         <p className="text-xs text-gray-400 mt-0.5">
-          {section.id === "about" && "Sección con información sobre tu negocio"}
-          {section.id === "services" && "Catálogo de productos con categorías"}
-          {section.id === "catalogs" && "Enlaces externos a tus catálogos"}
-          {section.id === "contact" && "Formulario y datos de contacto"}
+          {getSectionDescription(section.id)}
         </p>
       </div>
-      
+
       <button
+        type="button"
         onClick={() => onToggleVisibility(section.id)}
         className={`p-2 rounded-lg transition-colors ${
-          section.visible 
-            ? "text-tyrell-gold hover:bg-tyrell-gold/10" 
+          section.visible
+            ? "text-tyrell-gold hover:bg-tyrell-gold/10"
             : "text-gray-400 hover:bg-gray-100"
         }`}
         title={section.visible ? "Ocultar sección" : "Mostrar sección"}
@@ -97,9 +112,7 @@ export const AdminSectionOrder = ({ content, onSave, saving }) => {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
@@ -114,14 +127,14 @@ export const AdminSectionOrder = ({ content, onSave, saving }) => {
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
-    
-    if (active.id !== over.id) {
-      setSections((items) => {
-        const oldIndex = items.findIndex((i) => i.id === active.id);
-        const newIndex = items.findIndex((i) => i.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
+
+    if (!over || active.id === over.id) return;
+
+    setSections((items) => {
+      const oldIndex = items.findIndex((i) => i.id === active.id);
+      const newIndex = items.findIndex((i) => i.id === over.id);
+      return arrayMove(items, oldIndex, newIndex);
+    });
   };
 
   const toggleVisibility = (id) => {
@@ -132,59 +145,83 @@ export const AdminSectionOrder = ({ content, onSave, saving }) => {
     );
   };
 
+  const changeName = (id, newName) => {
+    setSections((items) =>
+      items.map((item) =>
+        item.id === id ? { ...item, name: newName } : item
+      )
+    );
+  };
+
   const handleSave = () => {
     onSave({
       ...content,
-      sectionOrder: { sections }
+      sectionOrder: { sections },
     });
-    toast.success("Orden de secciones guardado");
+    toast.success("Orden y nombres del menú guardados");
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-2xl text-tyrell-dark font-light">Orden de Secciones</h2>
+          <h2 className="font-display text-2xl text-tyrell-dark font-light">
+            Orden de Secciones
+          </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Arrastra las secciones para cambiar su orden en la página. Usa el ícono del ojo para mostrar/ocultar.
+            Arrastra las secciones para cambiar su orden, edita sus nombres visibles y usa el ícono del ojo para mostrar u ocultar.
           </p>
         </div>
-        <Button 
-          onClick={handleSave} 
-          disabled={saving} 
+
+        <Button
+          onClick={handleSave}
+          disabled={saving}
           className="bg-tyrell-gold hover:bg-tyrell-gold-dark text-white"
         >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+          {saving ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
           Guardar Orden
         </Button>
       </div>
 
-      {/* Preview */}
       <div className="bg-tyrell-ivory/50 border border-tyrell-gold/20 rounded-lg p-4">
-        <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Vista previa del orden</p>
+        <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">
+          Vista previa del orden
+        </p>
+
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="px-3 py-1 bg-tyrell-rose-dark text-white text-xs rounded">HERO</span>
-          {sections.filter(s => s.visible).map((section, index) => (
-            <span key={section.id} className="flex items-center gap-1">
-              <span className="text-gray-400">→</span>
-              <span className="px-3 py-1 bg-tyrell-gold/20 text-tyrell-dark text-xs rounded">
-                {section.name.toUpperCase()}
+          <span className="px-3 py-1 bg-tyrell-rose-dark text-white text-xs rounded">
+            HERO
+          </span>
+
+          {sections
+            .filter((s) => s.visible)
+            .map((section) => (
+              <span key={section.id} className="flex items-center gap-1">
+                <span className="text-gray-400">→</span>
+                <span className="px-3 py-1 bg-tyrell-gold/20 text-tyrell-dark text-xs rounded">
+                  {(section.name || section.id).toUpperCase()}
+                </span>
               </span>
-            </span>
-          ))}
+            ))}
+
           <span className="text-gray-400">→</span>
-          <span className="px-3 py-1 bg-tyrell-sage text-white text-xs rounded">FOOTER</span>
+          <span className="px-3 py-1 bg-tyrell-sage text-white text-xs rounded">
+            FOOTER
+          </span>
         </div>
       </div>
 
-      {/* Sortable list */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={sections.map(s => s.id)}
+          items={sections.map((s) => s.id)}
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-2">
@@ -193,6 +230,7 @@ export const AdminSectionOrder = ({ content, onSave, saving }) => {
                 key={section.id}
                 section={section}
                 onToggleVisibility={toggleVisibility}
+                onChangeName={changeName}
               />
             ))}
           </div>
