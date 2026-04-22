@@ -33,7 +33,6 @@ const TABS = [
   { id: "footer", label: "Pie" },
 ];
 
-// Login Component
 const LoginForm = ({ onLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,7 +67,9 @@ const LoginForm = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs tracking-wider uppercase text-tyrell-olive/70 mb-1.5">Correo electrónico</label>
+              <label className="block text-xs tracking-wider uppercase text-tyrell-olive/70 mb-1.5">
+                Correo electrónico
+              </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tyrell-rose" />
                 <Input
@@ -83,7 +84,9 @@ const LoginForm = ({ onLogin }) => {
             </div>
 
             <div>
-              <label className="block text-xs tracking-wider uppercase text-tyrell-olive/70 mb-1.5">Contraseña</label>
+              <label className="block text-xs tracking-wider uppercase text-tyrell-olive/70 mb-1.5">
+                Contraseña
+              </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tyrell-rose" />
                 <Input
@@ -104,9 +107,7 @@ const LoginForm = ({ onLogin }) => {
               </div>
             </div>
 
-            {error && (
-              <p className="text-red-500 text-sm text-center">{error}</p>
-            )}
+            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
             <Button
               type="submit"
@@ -136,7 +137,6 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Check if user is already authenticated
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("admin_token");
@@ -217,8 +217,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-tyrell-ivory">
       <Toaster position="top-center" richColors />
-      
-      {/* Header with logout */}
+
       <div className="bg-white border-b border-tyrell-rose/20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div>
@@ -226,9 +225,9 @@ export default function AdminPage() {
             <p className="text-tyrell-rose text-xs tracking-wider">Panel de Administración</p>
           </div>
           <div className="flex items-center gap-4">
-            <a 
-              href="/" 
-              target="_blank" 
+            <a
+              href="/"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-tyrell-olive/60 hover:text-tyrell-olive text-sm tracking-wider"
             >
@@ -246,7 +245,6 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        {/* Tabs */}
         <div className="flex gap-1 overflow-x-auto pb-4 mb-8 border-b border-tyrell-rose/15">
           {TABS.map((tab) => (
             <button
@@ -263,50 +261,64 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Content */}
         {activeTab === "brand" && siteContent && (
           <AdminBrand content={siteContent} onSave={saveSiteContent} saving={saving} />
         )}
+
         {activeTab === "colors" && (
-          <AdminColorPalette 
-            colorPalette={colorPalette} 
-            onSave={(palette) => setColorPalette(palette)} 
-            saving={saving} 
+          <AdminColorPalette
+            colorPalette={colorPalette}
+            onSave={(palette) => setColorPalette(palette)}
+            saving={saving}
           />
         )}
+
         {activeTab === "order" && siteContent && (
-          <AdminSectionOrder content={siteContent} onSave={saveSiteContent} saving={saving} />
+          <AdminSectionOrder
+            content={siteContent}
+            dynamicSections={dynamicSections}
+            onSave={saveSiteContent}
+            saving={saving}
+          />
         )}
+
         {activeTab === "header" && siteContent && (
           <AdminHeaderSection content={siteContent} onSave={saveSiteContent} saving={saving} />
         )}
+
         {activeTab === "hero" && siteContent && (
           <AdminHero content={siteContent} onSave={saveSiteContent} saving={saving} />
         )}
+
         {activeTab === "about" && siteContent && (
           <AdminAbout content={siteContent} onSave={saveSiteContent} saving={saving} />
         )}
+
         {activeTab === "categories" && (
           <>
             <AdminServicesSection content={siteContent} onSave={saveSiteContent} saving={saving} />
             <AdminCategories categories={categories} setCategories={setCategories} />
           </>
         )}
+
         {activeTab === "sections" && (
           <AdminDynamicSections sections={dynamicSections} setSections={setDynamicSections} />
         )}
+
         {activeTab === "catalogs" && siteContent && (
-          <AdminCatalogLinks 
-            catalogLinks={catalogLinks} 
-            setCatalogLinks={setCatalogLinks} 
+          <AdminCatalogLinks
+            catalogLinks={catalogLinks}
+            setCatalogLinks={setCatalogLinks}
             content={siteContent}
             onSave={saveSiteContent}
             saving={saving}
           />
         )}
+
         {activeTab === "contact" && siteContent && (
           <AdminContact content={siteContent} onSave={saveSiteContent} saving={saving} />
         )}
+
         {activeTab === "footer" && siteContent && (
           <AdminFooter content={siteContent} onSave={saveSiteContent} saving={saving} />
         )}

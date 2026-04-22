@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { Header } from "../components/landing/Header";
 import { HeroSection } from "../components/landing/HeroSection";
 import { AboutSection } from "../components/landing/AboutSection";
@@ -9,8 +10,9 @@ import { Footer } from "../components/landing/Footer";
 import { WhatsAppButton } from "../components/landing/WhatsAppButton";
 import { DynamicSection } from "../components/landing/DynamicSection";
 import { Toaster } from "sonner";
-import { Loader2 } from "lucide-react";
 import { api } from "../lib/api";
+
+const BACKEND_URL = "https://tyrellflowerstudio-updated-production.up.railway.app";
 
 const fallbackData = {
   site: {
@@ -40,7 +42,6 @@ const fallbackData = {
       ],
     },
   },
-  services: [],
   categories: [],
   catalogLinks: [],
   dynamicSections: [],
@@ -60,10 +61,8 @@ const slugify = (text = "") =>
 const fixImageUrl = (url) => {
   if (!url) return url;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  if (url.startsWith("/")) {
-    return `https://tyrellflowerstudio-updated-production.up.railway.app${url}`;
-  }
-  return `https://tyrellflowerstudio-updated-production.up.railway.app/${url}`;
+  if (url.startsWith("/")) return `${BACKEND_URL}${url}`;
+  return `${BACKEND_URL}/${url}`;
 };
 
 const ProductCard = ({ product }) => {
@@ -84,29 +83,22 @@ const ProductCard = ({ product }) => {
       </h3>
 
       {product.price && (
-        <p className="mt-2 text-sm text-[#666]">
-          {product.price}
-        </p>
+        <p className="mt-2 text-sm text-[#666]">{product.price}</p>
       )}
     </Link>
   );
 };
 
 const FeaturedProductsSection = ({ categories = [] }) => {
-  const activeProducts = useMemo(() => {
-    return (categories || [])
+  const featuredProducts = useMemo(() => {
+    const all = (categories || [])
       .filter((category) => category.active !== false)
       .flatMap((category) =>
-        (category.products || [])
-          .filter((product) => product.active !== false)
-          .map((product) => ({
-            ...product,
-            categoryName: category.name,
-          }))
+        (category.products || []).filter((product) => product.active !== false)
       );
-  }, [categories]);
 
-  const featuredProducts = activeProducts.slice(0, 4);
+    return all.slice(0, 4);
+  }, [categories]);
 
   if (!featuredProducts.length) return null;
 
@@ -123,67 +115,18 @@ const FeaturedProductsSection = ({ categories = [] }) => {
             </h2>
           </div>
 
-          <a
-            href="#catalogo-completo"
+          <Link
+            to="/products"
             className="inline-flex items-center justify-center px-6 py-3 text-sm uppercase tracking-[0.18em] bg-[#e8d8b8] text-[#7a5a1f] hover:opacity-90 transition-opacity"
           >
             Ver más
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
           {featuredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
-        </div>
-      </div>
-    </section>
-  );
-};
-
-const FullCatalogSection = ({ categories = [] }) => {
-  const activeCategories = (categories || []).filter((category) => category.active !== false);
-
-  if (!activeCategories.length) return null;
-
-  return (
-    <section id="catalogo-completo" className="px-4 md:px-8 lg:px-10 py-14 bg-white border-t border-black/5">
-      <div className="max-w-[1600px] mx-auto">
-        <div className="mb-10">
-          <p className="text-[11px] md:text-xs uppercase tracking-[0.28em] text-[#9a9a9a] mb-3">
-            Catálogo completo
-          </p>
-          <h2 className="text-4xl md:text-5xl font-serif text-[#111]">
-            Todos los productos
-          </h2>
-        </div>
-
-        <div className="space-y-16">
-          {activeCategories.map((category) => {
-            const products = (category.products || []).filter((product) => product.active !== false);
-            if (!products.length) return null;
-
-            return (
-              <section key={category.id}>
-                <div className="mb-8">
-                  <h3 className="text-3xl md:text-4xl font-serif text-[#111]">
-                    {category.name}
-                  </h3>
-                  {category.description && (
-                    <p className="mt-3 text-[#5b5b5b] max-w-2xl">
-                      {category.description}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
-                  {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
         </div>
       </div>
     </section>
@@ -198,6 +141,7 @@ export default function LandingPage() {
     const fetchData = async () => {
       try {
         const result = await api.getContent();
+
         const finalData = {
           ...fallbackData,
           ...result,
@@ -212,22 +156,43 @@ export default function LandingPage() {
               ...fallbackData.site.colorPalette,
               ...(result?.site?.colorPalette || {}),
             },
-            sectionOrder: result?.site?.sectionOrder || fallbackData.site.sectionOrder,
+            sectionOrder:
+              result?.site?.sectionOrder || fallbackData.site.sectionOrder,
           },
-          services: result?.services || [],
           categories: result?.categories || [],
           catalogLinks: result?.catalogLinks || [],
           dynamicSections: result?.dynamicSections || [],
         };
 
         const palette = finalData.site.colorPalette;
-        document.documentElement.style.setProperty("--color-primary", palette.primary || "#f4c952");
-        document.documentElement.style.setProperty("--color-primary-hover", palette.primaryHover || "#e0b63e");
-        document.documentElement.style.setProperty("--color-secondary", palette.secondary || "#B76E79");
-        document.documentElement.style.setProperty("--color-accent", palette.accent || "#D4B896");
-        document.documentElement.style.setProperty("--color-text", palette.text || "#1a1a1a");
-        document.documentElement.style.setProperty("--color-text-light", palette.textLight || "#4F6D5E");
-        document.documentElement.style.setProperty("--color-background", palette.background || "#F5F1EB");
+        document.documentElement.style.setProperty(
+          "--color-primary",
+          palette.primary || "#f4c952"
+        );
+        document.documentElement.style.setProperty(
+          "--color-primary-hover",
+          palette.primaryHover || "#e0b63e"
+        );
+        document.documentElement.style.setProperty(
+          "--color-secondary",
+          palette.secondary || "#B76E79"
+        );
+        document.documentElement.style.setProperty(
+          "--color-accent",
+          palette.accent || "#D4B896"
+        );
+        document.documentElement.style.setProperty(
+          "--color-text",
+          palette.text || "#1a1a1a"
+        );
+        document.documentElement.style.setProperty(
+          "--color-text-light",
+          palette.textLight || "#4F6D5E"
+        );
+        document.documentElement.style.setProperty(
+          "--color-background",
+          palette.background || "#F5F1EB"
+        );
 
         setData(finalData);
       } catch (error) {
@@ -249,16 +214,10 @@ export default function LandingPage() {
     );
   }
 
-  if (!data) {
-    return (
-      <div className="min-h-screen bg-tyrell-ivory flex items-center justify-center">
-        <p className="text-tyrell-olive/50">Error cargando contenido</p>
-      </div>
-    );
-  }
-
-  const colorPalette = data.site?.colorPalette || fallbackData.site.colorPalette;
-  const sectionOrder = data.site?.sectionOrder?.sections || fallbackData.site.sectionOrder.sections;
+  const colorPalette =
+    data.site?.colorPalette || fallbackData.site.colorPalette;
+  const sectionOrder =
+    data.site?.sectionOrder?.sections || fallbackData.site.sectionOrder.sections;
 
   const renderSection = (sectionId) => {
     switch (sectionId) {
@@ -280,7 +239,7 @@ export default function LandingPage() {
         );
 
       case "catalogs":
-        return data.catalogLinks && data.catalogLinks.length > 0 ? (
+        return data.catalogLinks?.length ? (
           <CatalogLinksSection
             key="catalogs"
             catalogLinks={data.catalogLinks}
@@ -314,16 +273,12 @@ export default function LandingPage() {
         .filter((section) => section.visible)
         .map((section) => renderSection(section.id))}
 
-      {data.dynamicSections &&
-        data.dynamicSections.length > 0 &&
-        data.dynamicSections
-          .filter((section) => section.active !== false)
-          .sort((a, b) => (a.order || 0) - (b.order || 0))
-          .map((section) => (
-            <DynamicSection key={section.id} section={section} />
-          ))}
-
-      <FullCatalogSection categories={data.categories} />
+      {data.dynamicSections
+        ?.filter((section) => section.active !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map((section) => (
+          <DynamicSection key={section.id} section={section} />
+        ))}
 
       <Footer siteData={data.site} colorPalette={colorPalette} />
       <WhatsAppButton whatsappLink={data.site?.brand?.whatsappLink} />

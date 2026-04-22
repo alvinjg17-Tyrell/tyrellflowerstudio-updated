@@ -47,8 +47,6 @@ app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads
 api_router = APIRouter(prefix="/api")
 
 
-# ─── Auth Models ──────────────────────────────────────────
-
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -78,12 +76,24 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
 
 
-# ─── Models ───────────────────────────────────────────────
-
 class Feature(BaseModel):
     title: str = ""
     description: str = ""
     icon: str = "Flower2"
+
+
+class AboutBlock(BaseModel):
+    id: str = ""
+    type: str = "text"
+    title: str = ""
+    subtitle: str = ""
+    content: str = ""
+    image: str = ""
+    video: str = ""
+    backgroundColor: str = "#FFFFFF"
+    textColor: str = "#1a1a1a"
+    visible: bool = True
+    order: int = 0
 
 
 class BrandContent(BaseModel):
@@ -100,8 +110,8 @@ class BrandContent(BaseModel):
 class NavMenuItem(BaseModel):
     id: str = ""
     label: str = ""
-    type: str = "route"  # route | anchor | dropdown | external
-    target: str = ""     # /nosotros | /#services | https://... | #bloque
+    type: str = "route"
+    target: str = ""
     visible: bool = True
     order: int = 0
     children: List["NavMenuItem"] = []
@@ -147,6 +157,7 @@ class AboutContent(BaseModel):
     badgeLabel: str = "Arreglos Entregados"
     features: List[Feature] = []
     image: str = ""
+    blocks: List[AboutBlock] = []
 
 
 class ServicesContent(BaseModel):
@@ -235,14 +246,17 @@ class SectionOrderItem(BaseModel):
     id: str
     name: str
     visible: bool = True
+    type: str = "fixed"
+    order: int = 0
+    sourceId: Optional[str] = None
 
 
 class SectionOrder(BaseModel):
     sections: List[SectionOrderItem] = [
-        SectionOrderItem(id="about", name="Nosotros", visible=True),
-        SectionOrderItem(id="services", name="Productos", visible=True),
-        SectionOrderItem(id="catalogs", name="Catálogos", visible=True),
-        SectionOrderItem(id="contact", name="Contacto", visible=True),
+        SectionOrderItem(id="about", name="Nosotros", visible=True, type="fixed", order=0),
+        SectionOrderItem(id="services", name="Productos", visible=True, type="fixed", order=1),
+        SectionOrderItem(id="catalogs", name="Catálogos", visible=True, type="fixed", order=2),
+        SectionOrderItem(id="contact", name="Contacto", visible=True, type="fixed", order=3),
     ]
 
 
@@ -332,9 +346,6 @@ class CatalogLinkResponse(BaseModel):
 
 NavMenuItem.model_rebuild()
 
-
-# ─── Default seed data ────────────────────────────────────
-
 DEFAULT_SITE = {
     "brand": {
         "name": "TYRELL",
@@ -390,7 +401,7 @@ DEFAULT_SITE = {
                         "id": "ver-todo",
                         "label": "Ver todo",
                         "type": "anchor",
-                        "target": "/#catalogo-completo",
+                        "target": "/products",
                         "visible": True,
                         "order": 1,
                         "children": [],
@@ -450,6 +461,7 @@ DEFAULT_SITE = {
             },
         ],
         "image": "https://images.unsplash.com/photo-1584515453937-c00929e621d1?crop=entropy&cs=srgb&fm=jpg&q=85&w=800",
+        "blocks": [],
     },
     "services": {
         "label": "Nuestros Servicios",
@@ -532,8 +544,6 @@ DEFAULT_CATALOG_LINKS = [
 ]
 
 
-# ─── Helpers ──────────────────────────────────────────────
-
 def optimize_image(input_path: Path, output_path: Path, max_size: tuple, quality: int = 85):
     try:
         with Image.open(input_path) as img:
@@ -567,9 +577,7 @@ def normalize_nav_item(item: dict, index: int = 0) -> dict:
         normalize_nav_item(child, child_index)
         for child_index, child in enumerate(children)
     ]
-
     item_id = item.get("id") or slugify(item.get("label", f"item-{index}")) or f"item-{index}"
-
     return {
         "id": item_id,
         "label": item.get("label", ""),
@@ -578,6 +586,39 @@ def normalize_nav_item(item: dict, index: int = 0) -> dict:
         "visible": item.get("visible", True),
         "order": item.get("order", index),
         "children": normalized_children,
+    }
+
+
+def normalize_about_block(block: dict, index: int = 0) -> dict:
+    return {
+        "id": block.get("id") or f"about-block-{uuid.uuid4().hex[:8]}",
+        "type": block.get("type", "text"),
+        "title": block.get("title", ""),
+        "subtitle": block.get("subtitle", ""),
+        "content": block.get("content", ""),
+        "image": block.get("image", ""),
+        "video": block.get("video", ""),
+        "backgroundColor": block.get("backgroundColor", "#FFFFFF"),
+        "textColor": block.get("textColor", "#1a1a1a"),
+        "visible": block.get("visible", True),
+        "order": block.get("order", index),
+    }
+
+
+def normalize_about(about: dict | None) -> dict:
+    about = about or {}
+    features = about.get("features", []) or []
+    blocks = about.get("blocks", []) or []
+    return {
+        "label": about.get("label", "Conócenos"),
+        "title": about.get("title", ""),
+        "subtitle": about.get("subtitle", ""),
+        "description": about.get("description", ""),
+        "badgeNumber": about.get("badgeNumber", "+2000"),
+        "badgeLabel": about.get("badgeLabel", "Arreglos Entregados"),
+        "features": features,
+        "image": about.get("image", ""),
+        "blocks": [normalize_about_block(block, index) for index, block in enumerate(blocks)],
     }
 
 
@@ -600,10 +641,8 @@ def normalize_product(product: dict, index: int = 0) -> dict:
         "order": product.get("order", index),
         "active": product.get("active", True),
     }
-
     if not normalized["slug"]:
         normalized["slug"] = slugify(normalized["name"])
-
     return normalized
 
 
@@ -611,7 +650,6 @@ def normalize_header(header: dict | None) -> dict:
     header = header or {}
     raw_nav_items = header.get("navItems", []) or []
 
-    # Backward compatibility: if navItems is still a list of strings, convert it.
     if raw_nav_items and isinstance(raw_nav_items[0], str):
         converted = []
         defaults = [
@@ -661,7 +699,10 @@ def normalize_header(header: dict | None) -> dict:
 async def seed_data():
     existing = await db.site_content.find_one()
     if not existing:
-        await db.site_content.insert_one(DEFAULT_SITE)
+        initial = DEFAULT_SITE.copy()
+        initial["about"] = normalize_about(initial.get("about", {}))
+        initial["header"] = normalize_header(initial.get("header", {}))
+        await db.site_content.insert_one(initial)
         logger.info("Seeded site_content")
     else:
         update_fields = {}
@@ -675,16 +716,14 @@ async def seed_data():
         if "label" not in existing.get("hero", {}):
             update_fields["hero.label"] = DEFAULT_SITE["hero"]["label"]
 
-        if "label" not in existing.get("about", {}):
-            update_fields["about.label"] = DEFAULT_SITE["about"]["label"]
-            update_fields["about.badgeNumber"] = DEFAULT_SITE["about"]["badgeNumber"]
-            update_fields["about.badgeLabel"] = DEFAULT_SITE["about"]["badgeLabel"]
+        current_about = existing.get("about", {})
+        normalized_about = normalize_about(current_about)
+        update_fields["about"] = normalized_about
 
         if "header" not in existing:
             update_fields["header"] = DEFAULT_SITE["header"]
         else:
-            normalized_header = normalize_header(existing.get("header", {}))
-            update_fields["header"] = normalized_header
+            update_fields["header"] = normalize_header(existing.get("header", {}))
 
         if update_fields:
             await db.site_content.update_one({}, {"$set": update_fields})
@@ -701,8 +740,6 @@ async def seed_data():
         logger.info("Seeded catalog_links")
 
 
-# ─── Routes ───────────────────────────────────────────────
-
 @api_router.get("/")
 async def root():
     return {"message": "TYRELL API running"}
@@ -714,7 +751,6 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     if not pwd_context.verify(request.password, ADMIN_PASSWORD_HASH):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-
     access_token = create_access_token(data={"sub": request.email})
     return TokenResponse(access_token=access_token)
 
@@ -741,7 +777,6 @@ async def upload_file(file: UploadFile = File(...)):
     if ext in [".jpg", ".jpeg", ".png", ".webp"]:
         optimized_filename = f"{file_id}.jpg"
         optimized_path = UPLOADS_DIR / optimized_filename
-
         thumbnail_filename = f"{file_id}_thumb.jpg"
         thumbnail_path = THUMBNAILS_DIR / thumbnail_filename
 
@@ -765,12 +800,14 @@ async def get_all_content():
     if site:
         site.pop("_id", None)
         if "colorPalette" not in site:
-            site["colorPalette"] = ColorPalette().dict()
+            site["colorPalette"] = ColorPalette().model_dump()
         site["header"] = normalize_header(site.get("header", {}))
+        site["about"] = normalize_about(site.get("about", {}))
     else:
         site = DEFAULT_SITE.copy()
-        site["colorPalette"] = ColorPalette().dict()
+        site["colorPalette"] = ColorPalette().model_dump()
         site["header"] = normalize_header(site.get("header", {}))
+        site["about"] = normalize_about(site.get("about", {}))
 
     services = []
     async for svc in db.services.find().sort("order", 1):
@@ -808,8 +845,9 @@ async def get_all_content():
 
 @api_router.put("/content")
 async def update_site_content(content: SiteContent):
-    content_dict = content.dict()
+    content_dict = content.model_dump()
     content_dict["header"] = normalize_header(content_dict.get("header", {}))
+    content_dict["about"] = normalize_about(content_dict.get("about", {}))
     await db.site_content.update_one({}, {"$set": content_dict}, upsert=True)
     return {"message": "Contenido actualizado", "data": content_dict}
 
@@ -825,7 +863,7 @@ async def get_services():
 
 @api_router.post("/services", response_model=ServiceResponse)
 async def create_service(service: ServiceCreate):
-    svc_dict = service.dict()
+    svc_dict = service.model_dump()
     svc_dict["id"] = str(uuid.uuid4())
     svc_dict["created_at"] = datetime.utcnow()
     await db.services.insert_one(svc_dict)
@@ -837,7 +875,7 @@ async def update_service(service_id: str, service: ServiceCreate):
     result = await db.services.find_one({"id": service_id})
     if not result:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    await db.services.update_one({"id": service_id}, {"$set": service.dict()})
+    await db.services.update_one({"id": service_id}, {"$set": service.model_dump()})
     updated = await db.services.find_one({"id": service_id})
     updated.pop("_id", None)
     return ServiceResponse(**updated)
@@ -884,7 +922,7 @@ async def get_product_by_slug(slug: str):
 
 @api_router.post("/categories", response_model=CategoryResponse)
 async def create_category(category: CategoryCreate):
-    cat_dict = category.dict()
+    cat_dict = category.model_dump()
     cat_dict["id"] = str(uuid.uuid4())
     cat_dict["created_at"] = datetime.utcnow()
     cat_dict["products"] = [
@@ -901,7 +939,7 @@ async def update_category(category_id: str, category: CategoryCreate):
     if not result:
         raise HTTPException(status_code=404, detail="Categoría no encontrada")
 
-    cat_dict = category.dict()
+    cat_dict = category.model_dump()
     cat_dict["products"] = [
         normalize_product(product, index)
         for index, product in enumerate(cat_dict.get("products", []))
@@ -936,7 +974,7 @@ async def get_catalog_links():
 
 @api_router.post("/catalog-links", response_model=CatalogLinkResponse)
 async def create_catalog_link(link: CatalogLinkCreate):
-    link_dict = link.dict()
+    link_dict = link.model_dump()
     link_dict["id"] = str(uuid.uuid4())
     link_dict["created_at"] = datetime.utcnow()
     await db.catalog_links.insert_one(link_dict)
@@ -948,7 +986,7 @@ async def update_catalog_link(link_id: str, link: CatalogLinkCreate):
     result = await db.catalog_links.find_one({"id": link_id})
     if not result:
         raise HTTPException(status_code=404, detail="Enlace no encontrado")
-    await db.catalog_links.update_one({"id": link_id}, {"$set": link.dict()})
+    await db.catalog_links.update_one({"id": link_id}, {"$set": link.model_dump()})
     updated = await db.catalog_links.find_one({"id": link_id})
     updated.pop("_id", None)
     return CatalogLinkResponse(**updated)
@@ -967,13 +1005,13 @@ async def get_color_palette():
     site = await db.site_content.find_one()
     if site and "colorPalette" in site:
         return site["colorPalette"]
-    return ColorPalette().dict()
+    return ColorPalette().model_dump()
 
 
 @api_router.put("/color-palette")
 async def update_color_palette(palette: ColorPalette):
-    await db.site_content.update_one({}, {"$set": {"colorPalette": palette.dict()}}, upsert=True)
-    return {"message": "Paleta de colores actualizada", "data": palette.dict()}
+    await db.site_content.update_one({}, {"$set": {"colorPalette": palette.model_dump()}}, upsert=True)
+    return {"message": "Paleta de colores actualizada", "data": palette.model_dump()}
 
 
 @api_router.get("/dynamic-sections")
@@ -987,7 +1025,7 @@ async def get_dynamic_sections():
 
 @api_router.post("/dynamic-sections", response_model=DynamicSectionResponse)
 async def create_dynamic_section(section: DynamicSectionCreate):
-    sec_dict = section.dict()
+    sec_dict = section.model_dump()
     sec_dict["id"] = str(uuid.uuid4())
     sec_dict["created_at"] = datetime.utcnow()
     await db.dynamic_sections.insert_one(sec_dict)
@@ -999,7 +1037,7 @@ async def update_dynamic_section(section_id: str, section: DynamicSectionCreate)
     result = await db.dynamic_sections.find_one({"id": section_id})
     if not result:
         raise HTTPException(status_code=404, detail="Sección no encontrada")
-    await db.dynamic_sections.update_one({"id": section_id}, {"$set": section.dict()})
+    await db.dynamic_sections.update_one({"id": section_id}, {"$set": section.model_dump()})
     updated = await db.dynamic_sections.find_one({"id": section_id})
     updated.pop("_id", None)
     return DynamicSectionResponse(**updated)

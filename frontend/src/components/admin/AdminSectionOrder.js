@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Save, Loader2, GripVertical, Eye, EyeOff } from "lucide-react";
+import { Save, Loader2, GripVertical, Eye, EyeOff, Layers } from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -22,18 +22,19 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 const defaultSections = [
-  { id: "about", name: "Nosotros", visible: true },
-  { id: "services", name: "Productos", visible: true },
-  { id: "catalogs", name: "Catálogos", visible: true },
-  { id: "contact", name: "Contacto", visible: true },
+  { id: "about", name: "Nosotros", visible: true, type: "fixed" },
+  { id: "services", name: "Productos", visible: true, type: "fixed" },
+  { id: "catalogs", name: "Catálogos", visible: true, type: "fixed" },
+  { id: "contact", name: "Contacto", visible: true, type: "fixed" },
 ];
 
-const getSectionDescription = (id) => {
-  if (id === "about") return "Sección con información sobre tu negocio";
-  if (id === "services") return "Catálogo de productos con categorías";
-  if (id === "catalogs") return "Enlaces externos a tus catálogos";
-  if (id === "contact") return "Formulario y datos de contacto";
-  return "Sección personalizada";
+const getSectionDescription = (section) => {
+  if (section.type === "dynamic") return "Sección dinámica creada desde el panel";
+  if (section.id === "about") return "Sección con información sobre tu negocio";
+  if (section.id === "services") return "Catálogo de productos con categorías";
+  if (section.id === "catalogs") return "Enlaces externos a tus catálogos";
+  if (section.id === "contact") return "Formulario y datos de contacto";
+  return "Sección del sitio";
 };
 
 const SortableSection = ({ section, onToggleVisibility, onChangeName }) => {
@@ -69,8 +70,17 @@ const SortableSection = ({ section, onToggleVisibility, onChangeName }) => {
       </div>
 
       <div className="flex-1">
+        <div className="flex items-center gap-2 mb-2">
+          {section.type === "dynamic" && (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-1 rounded bg-tyrell-gold/10 text-tyrell-gold">
+              <Layers className="w-3 h-3" />
+              Dinámica
+            </span>
+          )}
+        </div>
+
         <label className="block text-[11px] uppercase text-gray-400 mb-1">
-          Nombre visible en el menú
+          Nombre visible
         </label>
         <Input
           value={section.name || ""}
@@ -78,9 +88,7 @@ const SortableSection = ({ section, onToggleVisibility, onChangeName }) => {
           placeholder="Nombre de la sección"
           className="mb-2"
         />
-        <p className="text-xs text-gray-400 mt-0.5">
-          {getSectionDescription(section.id)}
-        </p>
+        <p className="text-xs text-gray-400">{getSectionDescription(section)}</p>
       </div>
 
       <button
@@ -99,16 +107,58 @@ const SortableSection = ({ section, onToggleVisibility, onChangeName }) => {
   );
 };
 
-export const AdminSectionOrder = ({ content, onSave, saving }) => {
-  const [sections, setSections] = useState(
-    content?.sectionOrder?.sections || defaultSections
+const mergeSectionsWithDynamic = (savedSections = [], dynamicSections = []) => {
+  const normalizedSaved = Array.isArray(savedSections) && savedSections.length
+    ? savedSections.map((section) => ({
+        ...section,
+        type: section.type || "fixed",
+      }))
+    : defaultSections;
+
+  const savedIds = new Set(normalizedSaved.map((section) => section.id));
+
+  const dynamicFromAdmin = (dynamicSections || []).map((section, index) => ({
+    id: `dynamic:${section.id}`,
+    sourceId: section.id,
+    name: section.title || `Sección ${index + 1}`,
+    visible: section.active !== false,
+    type: "dynamic",
+  }));
+
+  const missingDynamic = dynamicFromAdmin.filter(
+    (section) => !savedIds.has(section.id)
+  );
+
+  const merged = [
+    ...normalizedSaved,
+    ...missingDynamic,
+  ];
+
+  return merged.map((section, index) => ({
+    ...section,
+    visible: section.visible !== false,
+    type: section.type || "fixed",
+    order: index,
+  }));
+};
+
+export const AdminSectionOrder = ({
+  content,
+  dynamicSections = [],
+  onSave,
+  saving,
+}) => {
+  const [sections, setSections] = useState(defaultSections);
+
+  const mergedInitialSections = useMemo(
+    () =>
+      mergeSectionsWithDynamic(content?.sectionOrder?.sections, dynamicSections),
+    [content, dynamicSections]
   );
 
   useEffect(() => {
-    if (content?.sectionOrder?.sections) {
-      setSections(content.sectionOrder.sections);
-    }
-  }, [content]);
+    setSections(mergedInitialSections);
+  }, [mergedInitialSections]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -127,13 +177,15 @@ export const AdminSectionOrder = ({ content, onSave, saving }) => {
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
-
     if (!over || active.id === over.id) return;
 
     setSections((items) => {
       const oldIndex = items.findIndex((i) => i.id === active.id);
       const newIndex = items.findIndex((i) => i.id === over.id);
-      return arrayMove(items, oldIndex, newIndex);
+      return arrayMove(items, oldIndex, newIndex).map((item, index) => ({
+        ...item,
+        order: index,
+      }));
     });
   };
 
@@ -156,9 +208,18 @@ export const AdminSectionOrder = ({ content, onSave, saving }) => {
   const handleSave = () => {
     onSave({
       ...content,
-      sectionOrder: { sections },
+      sectionOrder: {
+        sections: sections.map((section, index) => ({
+          id: section.id,
+          name: section.name,
+          visible: section.visible !== false,
+          type: section.type || "fixed",
+          order: index,
+          ...(section.sourceId ? { sourceId: section.sourceId } : {}),
+        })),
+      },
     });
-    toast.success("Orden y nombres del menú guardados");
+    toast.success("Orden de secciones guardado");
   };
 
   return (
@@ -169,7 +230,7 @@ export const AdminSectionOrder = ({ content, onSave, saving }) => {
             Orden de Secciones
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Arrastra las secciones para cambiar su orden, edita sus nombres visibles y usa el ícono del ojo para mostrar u ocultar.
+            Reordena, renombra y muestra u oculta tanto las secciones fijas como las dinámicas.
           </p>
         </div>
 
@@ -238,7 +299,7 @@ export const AdminSectionOrder = ({ content, onSave, saving }) => {
       </DndContext>
 
       <p className="text-xs text-gray-400 text-center">
-        Mantén presionado y arrastra para reordenar • El Hero y Footer siempre se mantienen en su posición
+        Mantén presionado y arrastra para reordenar • El Hero y Footer siguen fijos
       </p>
     </div>
   );

@@ -3,11 +3,38 @@ import { Menu, X, MapPin, ChevronDown } from "lucide-react";
 import { Button } from "../ui/button";
 import { Link } from "react-router-dom";
 
+const normalizeNavItems = (items = []) =>
+  (items || [])
+    .filter((item) => item && item.visible !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+const NavLinkRenderer = ({ item, className, onClick, children }) => {
+  if (item.type === "route") {
+    return (
+      <Link to={item.target || "/"} onClick={onClick} className={className}>
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <a
+      href={item.target || "#"}
+      onClick={onClick}
+      target={item.type === "external" ? "_blank" : undefined}
+      rel={item.type === "external" ? "noopener noreferrer" : undefined}
+      className={className}
+    >
+      {children}
+    </a>
+  );
+};
+
 export const Header = ({ siteData }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isProductsOpen, setIsProductsOpen] = useState(false);
-  const [isMobileProductsOpen, setIsMobileProductsOpen] = useState(false);
+  const [openDesktopDropdown, setOpenDesktopDropdown] = useState(null);
+  const [openMobileDropdown, setOpenMobileDropdown] = useState(null);
 
   const brand = siteData?.brand || {};
   const header = siteData?.header || {};
@@ -20,22 +47,170 @@ export const Header = ({ siteData }) => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const navLinks = [
-    { label: header.navItems?.[0] || "Inicio", to: "/", type: "route" },
-    { label: header.navItems?.[1] || "Nosotros", to: "/nosotros", type: "route" },
-    { label: header.navItems?.[2] || "Servicios", to: "#", type: "dropdown" },
-    { label: header.navItems?.[3] || "Contacto", to: "/contacto", type: "route" },
-  ];
-
-  const productLinks = [
-    { label: "Ver destacados", href: "/#services" },
-    { label: "Ver todo", href: "/#catalogo-completo" },
-  ];
+  const navItems = normalizeNavItems(header.navItems || []);
+  const dropdownBgColor = header.dropdownBgColor || "#B76E79";
+  const dropdownTextColor = header.dropdownTextColor || "#FFFFFF";
 
   const closeMenus = () => {
     setIsMobileMenuOpen(false);
-    setIsMobileProductsOpen(false);
-    setIsProductsOpen(false);
+    setOpenDesktopDropdown(null);
+    setOpenMobileDropdown(null);
+  };
+
+  const handleAnchorClick = (e, target) => {
+    if (!target || !target.startsWith("#")) {
+      closeMenus();
+      return;
+    }
+
+    e.preventDefault();
+    const element = document.querySelector(target);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+    closeMenus();
+  };
+
+  const renderDesktopItem = (item) => {
+    const children = normalizeNavItems(item.children || []);
+
+    if (item.type === "dropdown") {
+      return (
+        <div
+          key={item.id}
+          className="relative"
+          onMouseEnter={() => setOpenDesktopDropdown(item.id)}
+          onMouseLeave={() => setOpenDesktopDropdown(null)}
+        >
+          <button
+            type="button"
+            className="text-sm tracking-wider uppercase font-light transition-all duration-300 hover:opacity-100 relative group text-white/80 hover:text-white inline-flex items-center gap-1"
+          >
+            {item.label}
+            <ChevronDown className="w-4 h-4" />
+            <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-tyrell-gold transition-all duration-300 group-hover:w-full" />
+          </button>
+
+          <div
+            className={`absolute top-full left-0 pt-4 transition-all duration-200 ${
+              openDesktopDropdown === item.id
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+          >
+            <div
+              className="min-w-[240px] border shadow-lg py-2"
+              style={{
+                backgroundColor: dropdownBgColor,
+                color: dropdownTextColor,
+                borderColor: "rgba(255,255,255,0.12)",
+              }}
+            >
+              {children.map((child) => (
+                <NavLinkRenderer
+                  key={child.id}
+                  item={child}
+                  onClick={(e) => {
+                    if (child.type === "anchor" && child.target?.startsWith("#")) {
+                      handleAnchorClick(e, child.target);
+                    } else {
+                      closeMenus();
+                    }
+                  }}
+                  className="block px-4 py-3 text-sm tracking-wide transition-colors hover:bg-white/10"
+                >
+                  {child.label}
+                </NavLinkRenderer>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <NavLinkRenderer
+        key={item.id}
+        item={item}
+        onClick={(e) => {
+          if (item.type === "anchor" && item.target?.startsWith("#")) {
+            handleAnchorClick(e, item.target);
+          } else {
+            closeMenus();
+          }
+        }}
+        className="text-sm tracking-wider uppercase font-light transition-all duration-300 hover:opacity-100 relative group text-white/80 hover:text-white"
+      >
+        {item.label}
+        <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-tyrell-gold transition-all duration-300 group-hover:w-full" />
+      </NavLinkRenderer>
+    );
+  };
+
+  const renderMobileItem = (item) => {
+    const children = normalizeNavItems(item.children || []);
+
+    if (item.type === "dropdown") {
+      const isOpen = openMobileDropdown === item.id;
+
+      return (
+        <div key={item.id}>
+          <button
+            type="button"
+            onClick={() =>
+              setOpenMobileDropdown((prev) => (prev === item.id ? null : item.id))
+            }
+            className="w-full flex items-center justify-between text-sm tracking-wider uppercase text-tyrell-dark/70 hover:text-tyrell-dark transition-colors duration-300 py-2"
+          >
+            <span>{item.label}</span>
+            <ChevronDown
+              className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {isOpen && (
+            <div
+              className="ml-3 mt-2 mb-2 rounded overflow-hidden"
+              style={{ backgroundColor: dropdownBgColor, color: dropdownTextColor }}
+            >
+              {children.map((child) => (
+                <NavLinkRenderer
+                  key={child.id}
+                  item={child}
+                  onClick={(e) => {
+                    if (child.type === "anchor" && child.target?.startsWith("#")) {
+                      handleAnchorClick(e, child.target);
+                    } else {
+                      closeMenus();
+                    }
+                  }}
+                  className="block px-4 py-3 text-sm hover:bg-white/10 transition-colors"
+                >
+                  {child.label}
+                </NavLinkRenderer>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <NavLinkRenderer
+        key={item.id}
+        item={item}
+        onClick={(e) => {
+          if (item.type === "anchor" && item.target?.startsWith("#")) {
+            handleAnchorClick(e, item.target);
+          } else {
+            closeMenus();
+          }
+        }}
+        className="block text-sm tracking-wider uppercase text-tyrell-dark/70 hover:text-tyrell-dark transition-colors duration-300 py-2"
+      >
+        {item.label}
+      </NavLinkRenderer>
+    );
   };
 
   return (
@@ -83,63 +258,11 @@ export const Header = ({ siteData }) => {
           </Link>
 
           <div className="hidden lg:flex items-center gap-8">
-            {navLinks.map((link) => {
-              if (link.type === "dropdown") {
-                return (
-                  <div
-                    key={link.label}
-                    className="relative"
-                    onMouseEnter={() => setIsProductsOpen(true)}
-                    onMouseLeave={() => setIsProductsOpen(false)}
-                  >
-                    <button
-                      type="button"
-                      className="text-sm tracking-wider uppercase font-light transition-all duration-300 hover:opacity-100 relative group text-white/80 hover:text-white inline-flex items-center gap-1"
-                    >
-                      {link.label}
-                      <ChevronDown className="w-4 h-4" />
-                      <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-tyrell-gold transition-all duration-300 group-hover:w-full" />
-                    </button>
-
-                    <div
-                      className={`absolute top-full left-0 pt-4 transition-all duration-200 ${
-                        isProductsOpen
-                          ? "opacity-100 pointer-events-auto"
-                          : "opacity-0 pointer-events-none"
-                      }`}
-                    >
-                      <div className="min-w-[220px] bg-white/98 backdrop-blur-xl border border-tyrell-gold/10 shadow-lg py-2">
-                        {productLinks.map((item) => (
-                          <a
-                            key={item.href}
-                            href={item.href}
-                            className="block px-4 py-3 text-sm tracking-wide text-tyrell-dark/80 hover:text-tyrell-dark hover:bg-tyrell-gold/5 transition-colors"
-                          >
-                            {item.label}
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <Link
-                  key={link.label}
-                  to={link.to}
-                  onClick={closeMenus}
-                  className="text-sm tracking-wider uppercase font-light transition-all duration-300 hover:opacity-100 relative group text-white/80 hover:text-white"
-                >
-                  {link.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-tyrell-gold transition-all duration-300 group-hover:w-full" />
-                </Link>
-              );
-            })}
+            {navItems.map(renderDesktopItem)}
 
             <a
-              href={brand.catalogUrl || "/catalogos"}
-              target={brand.catalogUrl ? "_blank" : "_self"}
+              href={brand.catalogUrl || "#"}
+              target="_blank"
               rel="noopener noreferrer"
             >
               <Button
@@ -165,65 +288,15 @@ export const Header = ({ siteData }) => {
 
       <div
         className={`lg:hidden transition-all duration-500 overflow-hidden ${
-          isMobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+          isMobileMenuOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
         }`}
       >
         <div className="bg-white/98 backdrop-blur-xl border-t border-tyrell-gold/10 px-4 py-6 space-y-2">
-          <Link
-            to="/"
-            onClick={closeMenus}
-            className="block text-sm tracking-wider uppercase text-tyrell-dark/70 hover:text-tyrell-dark transition-colors duration-300 py-2"
-          >
-            {header.navItems?.[0] || "Inicio"}
-          </Link>
-
-          <Link
-            to="/nosotros"
-            onClick={closeMenus}
-            className="block text-sm tracking-wider uppercase text-tyrell-dark/70 hover:text-tyrell-dark transition-colors duration-300 py-2"
-          >
-            {header.navItems?.[1] || "Nosotros"}
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => setIsMobileProductsOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between text-sm tracking-wider uppercase text-tyrell-dark/70 hover:text-tyrell-dark transition-colors duration-300 py-2"
-          >
-            <span>{header.navItems?.[2] || "Servicios"}</span>
-            <ChevronDown
-              className={`w-4 h-4 transition-transform ${
-                isMobileProductsOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-
-          {isMobileProductsOpen && (
-            <div className="pl-4 pb-2">
-              {productLinks.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  onClick={closeMenus}
-                  className="block text-sm text-tyrell-dark/70 hover:text-tyrell-dark transition-colors duration-300 py-2"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </div>
-          )}
-
-          <Link
-            to="/contacto"
-            onClick={closeMenus}
-            className="block text-sm tracking-wider uppercase text-tyrell-dark/70 hover:text-tyrell-dark transition-colors duration-300 py-2"
-          >
-            {header.navItems?.[3] || "Contacto"}
-          </Link>
+          {navItems.map(renderMobileItem)}
 
           <a
-            href={brand.catalogUrl || "/catalogos"}
-            target={brand.catalogUrl ? "_blank" : "_self"}
+            href={brand.catalogUrl || "#"}
+            target="_blank"
             rel="noopener noreferrer"
             className="block pt-2"
           >
