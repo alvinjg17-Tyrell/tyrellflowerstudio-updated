@@ -96,6 +96,20 @@ class AboutBlock(BaseModel):
     order: int = 0
 
 
+class ContactBlock(BaseModel):
+    id: str = ""
+    type: str = "text"
+    title: str = ""
+    subtitle: str = ""
+    content: str = ""
+    image: str = ""
+    video: str = ""
+    backgroundColor: str = "#FFFFFF"
+    textColor: str = "#1a1a1a"
+    visible: bool = True
+    order: int = 0
+
+
 class BrandContent(BaseModel):
     name: str = "TYRELL"
     tagline: str = ""
@@ -176,6 +190,7 @@ class ContactContent(BaseModel):
     schedule: str = ""
     scheduleWeekend: str = ""
     showLocation: bool = True
+    blocks: List[ContactBlock] = []
 
 
 class CatalogColors(BaseModel):
@@ -477,6 +492,8 @@ DEFAULT_SITE = {
         "scheduleTitle": "Horario de Atención",
         "schedule": "Lunes a Sábado: 8:00 AM - 7:00 PM",
         "scheduleWeekend": "Domingos: 9:00 AM - 2:00 PM",
+        "showLocation": True,
+        "blocks": [],
     },
 }
 
@@ -605,6 +622,22 @@ def normalize_about_block(block: dict, index: int = 0) -> dict:
     }
 
 
+def normalize_contact_block(block: dict, index: int = 0) -> dict:
+    return {
+        "id": block.get("id") or f"contact-block-{uuid.uuid4().hex[:8]}",
+        "type": block.get("type", "text"),
+        "title": block.get("title", ""),
+        "subtitle": block.get("subtitle", ""),
+        "content": block.get("content", ""),
+        "image": block.get("image", ""),
+        "video": block.get("video", ""),
+        "backgroundColor": block.get("backgroundColor", "#FFFFFF"),
+        "textColor": block.get("textColor", "#1a1a1a"),
+        "visible": block.get("visible", True),
+        "order": block.get("order", index),
+    }
+
+
 def normalize_about(about: dict | None) -> dict:
     about = about or {}
     features = about.get("features", []) or []
@@ -619,6 +652,22 @@ def normalize_about(about: dict | None) -> dict:
         "features": features,
         "image": about.get("image", ""),
         "blocks": [normalize_about_block(block, index) for index, block in enumerate(blocks)],
+    }
+
+
+def normalize_contact(contact: dict | None) -> dict:
+    contact = contact or {}
+    blocks = contact.get("blocks", []) or []
+    return {
+        "title": contact.get("title", ""),
+        "subtitle": contact.get("subtitle", ""),
+        "address": contact.get("address", ""),
+        "whatsappLabel": contact.get("whatsappLabel", ""),
+        "scheduleTitle": contact.get("scheduleTitle", ""),
+        "schedule": contact.get("schedule", ""),
+        "scheduleWeekend": contact.get("scheduleWeekend", ""),
+        "showLocation": contact.get("showLocation", True),
+        "blocks": [normalize_contact_block(block, index) for index, block in enumerate(blocks)],
     }
 
 
@@ -701,6 +750,7 @@ async def seed_data():
     if not existing:
         initial = DEFAULT_SITE.copy()
         initial["about"] = normalize_about(initial.get("about", {}))
+        initial["contact"] = normalize_contact(initial.get("contact", {}))
         initial["header"] = normalize_header(initial.get("header", {}))
         await db.site_content.insert_one(initial)
         logger.info("Seeded site_content")
@@ -716,9 +766,8 @@ async def seed_data():
         if "label" not in existing.get("hero", {}):
             update_fields["hero.label"] = DEFAULT_SITE["hero"]["label"]
 
-        current_about = existing.get("about", {})
-        normalized_about = normalize_about(current_about)
-        update_fields["about"] = normalized_about
+        update_fields["about"] = normalize_about(existing.get("about", {}))
+        update_fields["contact"] = normalize_contact(existing.get("contact", {}))
 
         if "header" not in existing:
             update_fields["header"] = DEFAULT_SITE["header"]
@@ -803,11 +852,13 @@ async def get_all_content():
             site["colorPalette"] = ColorPalette().model_dump()
         site["header"] = normalize_header(site.get("header", {}))
         site["about"] = normalize_about(site.get("about", {}))
+        site["contact"] = normalize_contact(site.get("contact", {}))
     else:
         site = DEFAULT_SITE.copy()
         site["colorPalette"] = ColorPalette().model_dump()
         site["header"] = normalize_header(site.get("header", {}))
         site["about"] = normalize_about(site.get("about", {}))
+        site["contact"] = normalize_contact(site.get("contact", {}))
 
     services = []
     async for svc in db.services.find().sort("order", 1):
@@ -848,6 +899,7 @@ async def update_site_content(content: SiteContent):
     content_dict = content.model_dump()
     content_dict["header"] = normalize_header(content_dict.get("header", {}))
     content_dict["about"] = normalize_about(content_dict.get("about", {}))
+    content_dict["contact"] = normalize_contact(content_dict.get("contact", {}))
     await db.site_content.update_one({}, {"$set": content_dict}, upsert=True)
     return {"message": "Contenido actualizado", "data": content_dict}
 
